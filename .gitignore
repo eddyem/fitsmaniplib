@@ -1,3 +1,13 @@
+# examples template:
+examples/template_c
+
+# QT-creator files:
+*.config
+*.creator
+*.creator.user
+*.files
+*.includes
+
 # Prerequisites
 *.d
 
