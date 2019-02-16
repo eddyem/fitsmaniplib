@@ -60,9 +60,10 @@ typedef struct{
 }Itmarray;
 
 typedef struct klist_{
-	char *record;
-	struct klist_ *next;
-	struct klist_ *last;
+    int keyclass;               // key class [look int CFITS_API ffgkcl(char *tcard) ]
+	char *record;               // record itself
+	struct klist_ *next;        // next record
+	struct klist_ *last;        // previous record
 } KeyList;
 
 typedef struct{
@@ -96,6 +97,7 @@ typedef struct{
 
 typedef struct{
     fitsfile *fp;       // cfitsio file structure
+    char *filename;     // filename
     int Nimages;        // amount of images in file
     FITSimage **images; // image array
     int Ntables;        // amount of tables in file
@@ -131,6 +133,7 @@ void keylist_remove_records(KeyList **list, char *sample);
 KeyList *keylist_copy(KeyList *list);
 KeyList *keylist_get_end(KeyList *list);
 void keylist_print(KeyList *list);
+KeyList *keylist_read(FITS *fits);
 
 void table_free(FITStable **tbl);
 FITStable *table_new(char *tabname);
@@ -146,9 +149,10 @@ FITSimage *image_mksimilar(FITSimage *in, int dtype);
 FITSimage *image_copy(FITSimage *in);
 FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
 
-void fits_free(FITS **fits);
-FITS *fits_read(char *filename);
-bool fits_write(char *filename, FITS *fits);
+void FITS_free(FITS **fits);
+FITS *FITS_read(char *filename);
+FITS *FITS_open(char *filename);
+bool FITS_write(char *filename, FITS *fits);
 
 /**************************************************************************************
  *                                    fileops.c                                       *

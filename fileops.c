@@ -18,6 +18,8 @@
 
 #include "FITSmanip.h"
 #include "local.h"
+#include <errno.h>
+#include <sys/stat.h>
 
 /**
  * Return TRUE if file _name_ not exists

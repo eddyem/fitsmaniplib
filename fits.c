@@ -40,6 +40,7 @@
  *  -  int fits_get_keyclass(char *card) returns a classification code of keyword record
  *  -  int fits_parse_template(char *template, char *card, int *keytype, int *status)
  *      makes record from template
+ *  - add HYSTORY?
  */
 
 /**
@@ -72,6 +73,7 @@ KeyList *keylist_add_record(KeyList **list, char *rec){
         WARNX(_("Can't copy data"));
         return NULL;
     }
+    node->keyclass = fits_get_keyclass(rec);
     if(list){
         if(*list){ // there was root node - search last
             last = keylist_get_end(*list);
@@ -196,8 +198,8 @@ void keylist_remove_records(KeyList **keylist, char *sample){
  * @param list (io) - address of pointer to first list element
  */
 void keylist_free(KeyList **list){
-    KeyList *node = *list, *next;
     if(!list || !*list) return;
+    KeyList *node = *list, *next;
     do{
         next = node->next;
         FREE(node->record);
@@ -238,6 +240,43 @@ void keylist_print(KeyList *list){
         printf("%s\n", list->record);
         list = list->next;
     }
+}
+
+/**
+ * @brief keylist_read read all keys from current FITS file
+ * This function read keys from current HDU, starting from current position
+ * @param fits - opened structure
+ * @return keylist read
+ */
+KeyList *keylist_read(FITS *fits){
+    if(!fits || !fits->fp) return NULL;
+    int fst, nkeys = -1, keypos = -1;
+    KeyList *list = fits->keylist;
+    fits_get_hdrpos(fits->fp, &nkeys, &keypos, &fst);
+    if(nkeys < 1){
+        WARNX(_("No keywords in given HDU"));
+        return NULL;
+    }
+    if(fst){
+        fits_report_error(stderr, fst);
+        return NULL;
+    }
+    DBG("Find %d keys, keypos=%d", nkeys, keypos);
+    for(int j = 1; j <= nkeys; ++j){
+        char card[FLEN_CARD];
+        fits_read_record(fits->fp, j, card, &fst);
+        if(fst) fits_report_error(stderr, fst);
+        else{
+            KeyList *kl = keylist_add_record(&list, card);
+            if(!kl){
+                /// "Не могу добавить запись в список"
+                WARNX(_("Can't add record to list"));
+            }else{
+                DBG("add key %d [class: %d]: \"%s\"", j, kl->keyclass, card);
+            }
+        }
+    }
+    return list;
 }
 
 /**************************************************************************************
@@ -297,7 +336,7 @@ FITStable *table_copy(FITStable *intab){
  * @return
  */
 FITStable *table_read(FITS *fits){
-    int ncols, i, fst, ret;
+    int ncols, i, fst = 0, ret;
     long nrows;
     char extname[FLEN_VALUE];
     fitsfile *fp = fits->fp;
@@ -314,7 +353,7 @@ FITStable *table_read(FITS *fits){
         int typecode;
         long repeat, width;
         ret = fits_get_coltype(fp, i, &typecode, &repeat, &width, &fst);
-        if(fst){fits_report_error(stderr, fst); ret = fst;}
+        if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
         if(ret){
             WARNX(_("Can't read column %d!"), i);
             continue;
@@ -328,7 +367,7 @@ FITStable *table_read(FITS *fits){
         int j;
         for(j = 0; j < repeat; ++j){
             ret = fits_read_col(fp, typecode, i, j=1, 1, 1, (void*)nullval, array, &anynul, &fst);
-            if(fst){fits_report_error(stderr, fst); ret = fst;}
+            if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
             if(ret){
                 WARNX(_("Can't read column %d row %d!"), i, j);
                 continue;
@@ -577,7 +616,7 @@ bool table_write(FITS *file){
     if(N == 0) return FALSE;
     fitsfile *fp = file->fp;
     for(i = 0; i < N; ++i){
-        int fst;
+        int fst = 0;
         FITStable *tbl = file->tables[i];
         size_t c, cols = tbl->ncols;
         char **columns = MALLOC(char*, cols);
@@ -593,7 +632,7 @@ bool table_write(FITS *file){
         //fits_movabs_hdu(fptr, 2, &hdutype, &status)
         int ret = fits_create_tbl(fp, BINARY_TBL, tbl->nrows, cols,
                                   columns, formats, units, tbl->tabname, &fst);
-        if(fst){fits_report_error(stderr, fst); ret = fst;}
+        if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
         FREE(columns); FREE(formats); FREE(units);
         if(ret){
             WARNX(_("Can't write table %s!"), tbl->tabname);
@@ -602,7 +641,7 @@ bool table_write(FITS *file){
         //col = tbl->columns;
         for(c = 0; c < cols; ++c, ++col){
             DBG("write column %zd", c);
-            int fst;
+            int fst = 0;
             fits_write_col(fp, col->coltype, c+1, 1, 1, col->repeat, col->contents, &fst);
             if(fst){
                 fits_report_error(stderr, fst);
@@ -618,8 +657,12 @@ bool table_write(FITS *file){
  *                                  FITS files                                        *
  **************************************************************************************/
 
-void fits_free(FITS **fits){
+void FITS_free(FITS **fits){
+    if(!fits || !*fits) return;
     FITS *f = *fits;
+    FREE(f->filename);
+    int fst;
+    fits_close_file(f->fp, &fst);
     keylist_free(&f->keylist);
     int n;
     for(n = 0; n < f->Ntables; ++n)
@@ -631,26 +674,74 @@ void fits_free(FITS **fits){
 
 /**
 
-  TODO: these functions won't work cause on refactoring stage!
+  TODO: READWRITE allows to modify files on-the-fly, need to use it!
+  TODO: what's about HCOMPRESS?
 
  * read FITS file and fill 'IMAGE' structure (with headers and tables)
  * can't work with image stack - opens the first image met
  * works only with binary tables
  */
-FITS *fits_read(char *filename){
-    FNAME();
-    fitsfile *fp;
-    int hdunum = 0, fst, ret;
+
+/**
+ * @brief FITS_open - just open FITS file
+ * @param filename - file to open
+ * @return pointer to FITS structure or NULL
+ */
+FITS *FITS_open(char *filename){
     FITS *fits = MALLOC(FITS, 1);
-    fits_open_file(&fp, filename, READONLY, &fst);
-    if(fst){fits_report_error(stderr, fst); goto returning;}
-    ret = fits_get_num_hdus(fp, &hdunum, &fst);
-    if(fst){fits_report_error(stderr, fst);}
-    if(ret || hdunum < 1){
+    int fst;
+    // use fits_open_diskfile instead of fits_open_file to prevent using of extended name syntax
+    fits_open_diskfile(&fits->fp, filename, READWRITE, &fst); // READWRITE allows to modify files on-the-fly
+    if(fst){
+        fits_report_error(stderr, fst);
+        FITS_free(&fits);
+        return NULL;
+    }
+    fits->filename = strdup(filename);
+    return fits;
+}
+
+/**
+ * @brief FITS_read - try to open & read all contents of FITS file
+ * This function won't work with unordinary files. Use it only with simple files with primitive structure.
+ * @param filename - file to open
+ * @return pointer to FITS structure or NULL
+ */
+FITS *FITS_read(char *filename){
+    int hdunum = 0, fst = 0;
+    FITS *fits = FITS_open(filename);
+    if(!fits) return NULL;
+    fits_get_num_hdus(fits->fp, &hdunum, &fst);
+    DBG("Got %d HDUs", hdunum);
+    if(fst || hdunum < 1){
+        if(!fst) FITS_free(&fits);
         WARNX(_("Can't read HDU"));
-        fst = 1;
         goto returning;
     }
+    int hdutype;
+    for(int i = 1; !(fits_movabs_hdu(fits->fp, i, &hdutype, &fst)); ++i){
+        DBG("try to read keys");
+        keylist_read(fits);
+        // types: IMAGE_HDU , ASCII_TBL, BINARY_TBL
+        DBG("HDU[%d] type %d", i, hdutype);
+        switch(hdutype){
+            case IMAGE_HDU:
+                DBG("Image");
+            break;
+            case BINARY_TBL:
+                DBG("Binary table");
+            break;
+            case ASCII_TBL:
+                DBG("ASCII table");
+                //table_read(img, fp);
+            break;
+            default:
+                WARNX(_("Unknown HDU type"));
+        }
+    }
+    if(fst == END_OF_FILE){
+        fst = 0;
+    }else goto returning;
 #if 0
     // TODO: open not only images (liststruc.c from cexamples)!
     // TODO: open not only 2-dimensional files!
@@ -669,48 +760,7 @@ FITS *fits_read(char *filename){
     img->height = naxes[1];
     DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], img->dtype);
     // loop through all HDUs
-    KeyList *list = img->keylist;
-    int imghdu = -1;
-    for(i = 1; !(fits_movabs_hdu(fp, i, &hdutype, &fst)); ++i){
-        int hdutype;
-        fits_get_hdu_type(fp, &hdutype, &fst);
-        if(fst){fits_report_error(stderr, fst); continue;}
-        // types: IMAGE_HDU , ASCII_TBL, BINARY_TBL
-        DBG("HDU type %d", hdutype);
-        if(hdutype != IMAGE_HDU){
-        //if(hdutype == BINARY_TBL){
-            table_read(img, fp);
-            continue;
-        }
-        if(imghdu < 1) imghdu = i;
-        fits_get_hdrpos(fp, &nkeys, &keypos, &fst);
-        if(fst){fits_report_error(stderr, fst); continue;}
-        //DBG("HDU # %d of %d keys", i, nkeys);
-        for(j = 1; j <= nkeys; ++j){
-            /* TODO check like this and mark all special records:
-            for (ii = 1; ii <= nkeys; ii++) {
-                fits_read_record(infptr, ii, card, &status);
-                if (fits_get_keyclass(card) > TYP_CMPRS_KEY)
-                    list_add_rec...
-            }*/
-            ret = fits_read_record(fp, j, card, &fst);
-            if(fst){fits_report_error(stderr, fst); ret = fst;}
-            if(!ret){
-                if(!keylist_add_record(&list, card)){
-                    /// "Не могу добавить запись в список"
-                    WARNX(_("Can't add record to list"));
-                }
-                DBG("add key %d: \"%s\"", j, card);
-            }
-        }
-    }
-    img->keylist = list;
-    if(fst == END_OF_FILE){
-        fst = 0;
-    }else{
-        fits_report_error(stderr, fst);
-        goto returning;
-    }
+
     if(fits_movabs_hdu(fp, imghdu, &hdutype, &fst)){
         WARNX(_("Can't open image HDU #%d"), imghdu);
         fst = 1;
@@ -725,21 +775,21 @@ FITS *fits_read(char *filename){
     DBG("ready");
 #endif
 returning:
-    /*if(fst){
-        imfree(&img);
-    }*/
-    ret = fits_close_file(fp, &fst);
-    if(fst){fits_report_error(stderr, fst);}
+    if(fst){
+        fits_report_error(stderr, fst);
+        fst = 0;
+        FITS_free(&fits);
+    }
     return fits;
 }
 
-bool fits_write(char *filename, FITS *fits){
+bool FITS_write(char *filename, FITS *fits){
     if(!filename || !fits) return FALSE;
-    /*int w = fits->width, h = fits->height, fst;
+    /*int w = fits->width, h = fits->height, fst = 0;
     long naxes[2] = {w, h};
     size_t sz = w * h;
     fitsfile *fp;
-    fits_create_file(&fp, filename, &fst);
+    fits_create_diskfile(&fp, filename, &fst);
     if(fst){fits_report_error(stderr, fst); return FALSE;}
     // TODO: save FITS files in original (or given by user) data format!
     // check fits->dtype - does all data fits it

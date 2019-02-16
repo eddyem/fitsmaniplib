@@ -17,6 +17,7 @@
  */
 
 #include "common.h"
+#include <string.h>
 
 typedef struct{
     char *fitsname;
@@ -39,7 +40,6 @@ glob_pars G; /* = {
 myoption cmdlnopts[] = {
 // common options
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
-    {"fitsname",NEED_ARG,   NULL,   'i',    arg_string, APTR(&G.fitsname),  _("name of input file")},
     {"list",    NO_ARGS,    NULL,   'l',    arg_none,   APTR(&G.list),      _("list all keywords")},
     {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to file (you can add more than one record in once, point more -a)")},
     end_option
@@ -54,13 +54,14 @@ myoption cmdlnopts[] = {
  */
 glob_pars *parse_args(int argc, char **argv){
     int i;
-    char *helpstring = "Usage: %%s [args]\n\n\tWhere args are:\n";
+    char *helpstring = "Usage: %%s [args] infile.fits\n\n\tWhere args are:\n";
     change_helpstring(helpstring);
     // parse arguments
     parseargs(&argc, &argv, cmdlnopts);
     if(help) showhelp(-1, cmdlnopts);
-    if(argc > 0){
-        for (i = 0; i < argc; i++)
+    if(argc)(G.fitsname = strdup(argv[0]));
+    if(argc > 1){
+        for (i = 1; i < argc; i++)
             printf("Ignore extra argument: %s\n", argv[i]);
     }
     return &G;
@@ -70,8 +71,12 @@ int main(int argc, char *argv[]){
     initial_setup();
     parse_args(argc, argv);
     if(!G.fitsname) ERRX(_("No input filename given!"));
-    printf("Name: %s\n", G.fitsname);
-    if(G.list) printf("List\n");
+    green("Open file %s\n", G.fitsname);
+    FITS *f = FITS_read(G.fitsname);
+    if(!f) ERRX(_("Can't open file %s"), G.fitsname);
+    if(G.list){
+        green("List of keywords:\n");
+    }
     if(G.addrec){
         char **ptr = G.addrec;
         while(*ptr){
