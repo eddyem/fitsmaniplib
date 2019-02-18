@@ -20,9 +20,10 @@
 #include <string.h>
 
 typedef struct{
-    char *fitsname;
-    int list;
-    char **addrec;
+    char *fitsname;     // input file name
+    int list;           // print keyword list
+    int contents;       // print short description of file contents
+    char **addrec;      // add some records to keywords in first HDU
 } glob_pars;
 
 /*
@@ -40,6 +41,7 @@ glob_pars G; /* = {
 myoption cmdlnopts[] = {
 // common options
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
+    {"contents",NO_ARGS,    NULL,   'c',    arg_none,   APTR(&G.contents), _("show short file contents")},
     {"list",    NO_ARGS,    NULL,   'l',    arg_none,   APTR(&G.list),      _("list all keywords")},
     {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to file (you can add more than one record in once, point more -a)")},
     end_option
@@ -74,8 +76,33 @@ int main(int argc, char *argv[]){
     green("Open file %s\n", G.fitsname);
     FITS *f = FITS_read(G.fitsname);
     if(!f) ERRX(_("Can't open file %s"), G.fitsname);
+    int N = f->NHDUs;
     if(G.list){
-        green("List of keywords:\n");
+        green("\n\nList of keywords:\n");
+        for(int i = 1; i <= N; ++i){
+            green("\nHDU #%d\n", i);
+            keylist_print(f->HDUs[i].keylist);
+        }
+    }
+    if(G.contents){
+        green("\n\nFile consists of %d HDUs:\n", N);
+        for(int i = 0; i <= N; ++i){
+            printf("\tHDU #%d - ", i);
+            switch(f->HDUs[i].hdutype){
+                case IMAGE_HDU:
+                    printf("Image");
+                break;
+                case ASCII_TBL:
+                    printf("ASCII table");
+                break;
+                case BINARY_TBL:
+                    printf("Binary table");
+                break;
+                default:
+                    printf("Some shit");
+            }
+            printf("\n");
+        }
     }
     if(G.addrec){
         char **ptr = G.addrec;

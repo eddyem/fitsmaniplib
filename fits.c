@@ -22,6 +22,7 @@
 #include "FITSmanip.h"
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <usefull_macros.h>
@@ -249,10 +250,11 @@ void keylist_print(KeyList *list){
  * @return keylist read
  */
 KeyList *keylist_read(FITS *fits){
-    if(!fits || !fits->fp) return NULL;
-    int fst, nkeys = -1, keypos = -1;
-    KeyList *list = fits->keylist;
+    if(!fits || !fits->fp || !fits->curHDU) return NULL;
+    int fst = 0, nkeys = -1, keypos = -1;
+    KeyList *list = fits->curHDU->keylist;
     fits_get_hdrpos(fits->fp, &nkeys, &keypos, &fst);
+    DBG("nkeys=%d, keypos=%d, status=%d", nkeys, keypos, fst);
     if(nkeys < 1){
         WARNX(_("No keywords in given HDU"));
         return NULL;
@@ -349,6 +351,7 @@ FITStable *table_read(FITS *fits){
     DBG("Table named %s with %ld rows and %d columns", extname, nrows, ncols);
     FITStable *tbl = table_new(extname);
     if(!tbl) return NULL;
+    fits->curHDU->contents.table = tbl;
     for(i = 1; i <= ncols; ++i){
         int typecode;
         long repeat, width;
@@ -390,10 +393,6 @@ FITStable *table_read(FITS *fits){
         //table_addcolumn(tbl, &col);
         FREE(array);
     }
-    int N = fits->Ntables + 1;
-    if(!(fits->tables = realloc(fits->tables, sizeof(FITStable**)*N)))
-        ERR("realloc()");
-    fits->tables[fits->Ntables++] = tbl;
     return tbl;
 }
 
@@ -600,54 +599,55 @@ void table_print(FITStable *tbl){
  * @param fits - pointer to given file structure
  */
 void table_print_all(FITS *fits){
-    size_t i, N = fits->Ntables;
+    size_t i, N = fits->NHDUs+1;
     if(N == 0) return;
-    for(i = 0; i < N; ++i)
-        table_print(fits->tables[i]);
+    for(i = 1; i < N; ++i){
+        if(fits->HDUs[i].hdutype == BINARY_TBL || fits->HDUs[i].hdutype == ASCII_TBL)
+            table_print(fits->HDUs[i].contents.table);
+    }
 }
 
 /**
- * @brief table_write - write tables to FITS file
+ * @brief table_write - write tables to FITS file from current HDU
  * @param fits (i)    - pointer to FITS file structure
  */
 bool table_write(FITS *file){
     FNAME();
-    size_t N = file->Ntables, i;
-    if(N == 0) return FALSE;
     fitsfile *fp = file->fp;
-    for(i = 0; i < N; ++i){
+    int fst = 0;
+    int hdutype = file->curHDU->hdutype;
+    if(hdutype != BINARY_TBL || hdutype != ASCII_TBL)
+        return FALSE;
+    FITStable *tbl = file->curHDU->contents.table;
+    size_t c, cols = tbl->ncols;
+    char **columns = MALLOC(char*, cols);
+    char **formats = MALLOC(char*, cols);
+    char **units   = MALLOC(char*, cols);
+    table_column *col = tbl->columns;
+    for(c = 0; c < cols; ++c, ++col){
+        columns[c] = col->colname;
+        formats[c] = col->format;
+        units[c]   = col->unit;
+        DBG("col: %s, form: %s, unit: %s", columns[c], formats[c], units[c]);
+    }
+    //fits_movabs_hdu(fptr, 2, &hdutype, &status)
+    int ret = fits_create_tbl(fp, hdutype, tbl->nrows, cols,
+                              columns, formats, units, tbl->tabname, &fst);
+    if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
+    FREE(columns); FREE(formats); FREE(units);
+    if(ret){
+        WARNX(_("Can't write table %s!"), tbl->tabname);
+        return FALSE;
+    }
+    //col = tbl->columns;
+    for(c = 0; c < cols; ++c, ++col){
+        DBG("write column %zd", c);
         int fst = 0;
-        FITStable *tbl = file->tables[i];
-        size_t c, cols = tbl->ncols;
-        char **columns = MALLOC(char*, cols);
-        char **formats = MALLOC(char*, cols);
-        char **units = MALLOC(char*, cols);
-        table_column *col = tbl->columns;
-        for(c = 0; c < cols; ++c, ++col){
-            columns[c] = col->colname;
-            formats[c] = col->format;
-            units[c] = col->unit;
-            DBG("col: %s, form: %s, unit: %s", columns[c], formats[c], units[c]);
-        }
-        //fits_movabs_hdu(fptr, 2, &hdutype, &status)
-        int ret = fits_create_tbl(fp, BINARY_TBL, tbl->nrows, cols,
-                                  columns, formats, units, tbl->tabname, &fst);
-        if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
-        FREE(columns); FREE(formats); FREE(units);
-        if(ret){
-            WARNX(_("Can't write table %s!"), tbl->tabname);
+        fits_write_col(fp, col->coltype, c+1, 1, 1, col->repeat, col->contents, &fst);
+        if(fst){
+            fits_report_error(stderr, fst);
+            WARNX(_("Can't write column %s!"), col->colname);
             return FALSE;
-        }
-        //col = tbl->columns;
-        for(c = 0; c < cols; ++c, ++col){
-            DBG("write column %zd", c);
-            int fst = 0;
-            fits_write_col(fp, col->coltype, c+1, 1, 1, col->repeat, col->contents, &fst);
-            if(fst){
-                fits_report_error(stderr, fst);
-                WARNX(_("Can't write column %s!"), col->colname);
-                return FALSE;
-            }
         }
     }
     return TRUE;
@@ -661,14 +661,24 @@ void FITS_free(FITS **fits){
     if(!fits || !*fits) return;
     FITS *f = *fits;
     FREE(f->filename);
-    int fst;
+    int fst = 0;
     fits_close_file(f->fp, &fst);
-    keylist_free(&f->keylist);
-    int n;
-    for(n = 0; n < f->Ntables; ++n)
-        table_free(&f->tables[n]);
-    for(n = 0; n < f->Nimages; ++n)
-        image_free(&f->images[n]);
+    int n, N = f->NHDUs;
+    for(n = 1; n < N; ++n){
+        FITSHDU *hdu = &f->HDUs[n];
+        keylist_free(&hdu->keylist);
+        switch(hdu->hdutype){
+            case IMAGE_HDU:
+                image_free(&hdu->contents.image);
+            break;
+            case BINARY_TBL:
+            case ASCII_TBL:
+                table_free(&hdu->contents.table);
+            break;
+            default: // do nothing
+            break;
+        }
+    }
     FREE(*fits);
 }
 
@@ -689,7 +699,7 @@ void FITS_free(FITS **fits){
  */
 FITS *FITS_open(char *filename){
     FITS *fits = MALLOC(FITS, 1);
-    int fst;
+    int fst = 0;
     // use fits_open_diskfile instead of fits_open_file to prevent using of extended name syntax
     fits_open_diskfile(&fits->fp, filename, READWRITE, &fst); // READWRITE allows to modify files on-the-fly
     if(fst){
@@ -718,15 +728,21 @@ FITS *FITS_read(char *filename){
         WARNX(_("Can't read HDU"));
         goto returning;
     }
+    fits->NHDUs = hdunum;
+    fits->HDUs = MALLOC(FITSHDU, hdunum+1);
     int hdutype;
-    for(int i = 1; !(fits_movabs_hdu(fits->fp, i, &hdutype, &fst)); ++i){
-        DBG("try to read keys");
-        keylist_read(fits);
+    for(int i = 1; i <= hdunum && !(fits_movabs_hdu(fits->fp, i, &hdutype, &fst)); ++i){
+        FITSHDU *curHDU = &fits->HDUs[i];
+        fits->curHDU = curHDU;
+        DBG("try to read keys from HDU #%d (type: %d)", i, hdutype);
+        curHDU->hdutype = hdutype;
+        curHDU->keylist = keylist_read(fits);
         // types: IMAGE_HDU , ASCII_TBL, BINARY_TBL
         DBG("HDU[%d] type %d", i, hdutype);
         switch(hdutype){
             case IMAGE_HDU:
                 DBG("Image");
+                curHDU->contents.image = image_read(fits);
             break;
             case BINARY_TBL:
                 DBG("Binary table");
@@ -742,38 +758,6 @@ FITS *FITS_read(char *filename){
     if(fst == END_OF_FILE){
         fst = 0;
     }else goto returning;
-#if 0
-    // TODO: open not only images (liststruc.c from cexamples)!
-    // TODO: open not only 2-dimensional files!
-    // get image dimensions
-    int i, j, hdunum = 0, hdutype, nkeys, keypos, naxis;
-    long naxes[2];
-    char card[FLEN_CARD];
-    fits_get_img_param(fp, 2, &img->dtype, &naxis, naxes, &fst);
-    if(fst){fits_report_error(stderr, fst); goto returning;}
-    if(naxis > 2){
-        WARNX(_("Images with > 2 dimensions are not supported"));
-        fst = 1;
-        goto returning;
-    }
-    img->width = naxes[0];
-    img->height = naxes[1];
-    DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], img->dtype);
-    // loop through all HDUs
-
-    if(fits_movabs_hdu(fp, imghdu, &hdutype, &fst)){
-        WARNX(_("Can't open image HDU #%d"), imghdu);
-        fst = 1;
-        goto returning;
-    }
-    size_t sz = naxes[0] * naxes[1];
-    img->data = MALLOC(double, sz);
-    int stat = 0;
-    fits_read_img(fp, TDOUBLE, 1, sz, NULL, img->data, &stat, &fst);
-    if(fst){fits_report_error(stderr, fst);}
-    if(stat) WARNX(_("Found %d pixels with undefined value"), stat);
-    DBG("ready");
-#endif
 returning:
     if(fst){
         fits_report_error(stderr, fst);
@@ -835,14 +819,28 @@ void image_free(FITSimage **img){
 }
 
 /**
- * create an empty image without headers, assign data type to "dtype"
+ * @brief image_malloc - allocate memory for given data type
+ * @param w     - image width
+ * @param h     - image height
+ * @param dtype - data type
+ * @return allocated memory
  */
-FITSimage *image_new(size_t h, size_t w, int dtype){
-    size_t bufsiz = w*h;
+void *image_data_malloc(size_t w, size_t h, int dtype){
+    void *data = calloc(w*h, image_datatype_size(dtype));
+    if(!data) ERR(_("calloc()"));
+    return data;
+}
+
+/**
+ * @brief image_new - create an empty image without headers, assign data type to "dtype"
+ * @param w      - image width
+ * @param h      - image height
+ * @param dtype  - image data type
+ * @return
+ */
+FITSimage *image_new(size_t  w, size_t h, int dtype){
     FITSimage *out = MALLOC(FITSimage, 1);
-    // TODO: make allocation when reading!
-    // TODO: allocate input data type ?
-    out->data = MALLOC(double, bufsiz);
+    out->data = image_data_malloc(w, h, dtype);
     out->width = w;
     out->height = h;
     out->dtype = dtype;
@@ -851,13 +849,13 @@ FITSimage *image_new(size_t h, size_t w, int dtype){
 
 /**
  * build IMAGE image from data array indata
- */
+ *
 FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata){
     size_t stride = 0;
     double (*fconv)(uint8_t *data) = NULL;
     double ubyteconv(uint8_t *data){return (double)*data;}
-    double ushortconv(uint8_t *data){return (double)*(int16_t*)data;}
-    double ulongconv(uint8_t *data){return (double)*(uint32_t*)data;}
+    double ushortconv(uint8_t *data){return (double)*(short*)data;}
+    double ulongconv(uint8_t *data){return (double)*(unsigned long*)data;}
     double ulonglongconv(uint8_t *data){return (double)*(uint64_t*)data;}
     double floatconv(uint8_t *data){return (double)*(float*)data;}
     FITSimage *out = image_new(h, w, dtype);
@@ -866,6 +864,7 @@ FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata){
             stride = 1;
             fconv = ubyteconv;
         break;
+        //case USHORT_IMG?
         case SHORT_IMG:
             stride = 2;
             fconv = ushortconv;
@@ -901,29 +900,55 @@ FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata){
             *dout++ = fconv(din);
     }
     return out;
-}
+}*/
 
 /**
  * create an empty copy of image "in" without headers, assign data type to "dtype"
  */
-FITSimage *image_mksimilar(FITSimage *img, int dtype){
-    size_t w = img->width, h = img->height, bufsiz = w*h;
-    FITSimage *out = MALLOC(FITSimage, 1);
-    // TODO: allocate buffer as in original!
-    out->data = MALLOC(double, bufsiz);
-    out->width = w;
-    out->height = h;
-    out->dtype = dtype;
-    return out;
+FITSimage *image_mksimilar(FITSimage *img){
+    if(!img || img->height < 1 || img->width < 1) return NULL;
+    return image_new(img->width, img->height, img->dtype);
 }
 
 /**
  * make full copy of image 'in'
  */
 FITSimage *image_copy(FITSimage *in){
-    FITSimage *out = image_mksimilar(in, in->dtype);
+    FITSimage *out = image_mksimilar(in);
+    if(!out) return NULL;
     // TODO: size of data as in original!
     memcpy(out->data, in->data, sizeof(double)*in->width*in->height);
     return out;
 }
 
+/**
+ * @brief image_read - read image from current HDU
+ * @param fits - fits structure pointer
+ * @return - pointer to allocated image structure or NULL if failed
+ */
+FITSimage *image_read(FITS *fits){
+    // TODO: open not only 2-dimensional files!
+    // get image dimensions
+    int naxis, fst = 0, dtype;
+    long naxes[2] = {0,0};
+    fits_get_img_param(fits->fp, 2, &dtype, &naxis, naxes, &fst);
+    if(fst){fits_report_error(stderr, fst); return NULL;}
+    if(naxis > 2){
+        WARNX(_("Images with > 2 dimensions are not supported"));
+        return NULL;
+    }
+    DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], dtype);
+
+    FITSimage *img = image_new(naxes[0], naxes[1], dtype);
+
+    int stat = 0;
+    fits_read_img(fits->fp, dtype, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
+    if(fst){
+        fits_report_error(stderr, fst);
+        image_free(&img);
+        return NULL;
+    }
+    if(stat) WARNX(_("Found %d pixels with undefined value"), stat);
+    DBG("ready");
+    return img;
+}

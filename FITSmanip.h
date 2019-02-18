@@ -37,6 +37,7 @@ cfitsio.h BITPIX code values for FITS image types:
 #define FLOAT_IMG   -32
 #define DOUBLE_IMG  -64
 */
+/*
 // FilterType (not only convolution!)
 typedef enum{
     FILTER_NONE = 0     // simple start
@@ -58,7 +59,11 @@ typedef struct{
     double *data;
     size_t size;
 }Itmarray;
+*/
 
+/**
+  Keylist: all keys from given HDU
+ */
 typedef struct klist_{
     int keyclass;               // key class [look int CFITS_API ffgkcl(char *tcard) ]
 	char *record;               // record itself
@@ -66,6 +71,9 @@ typedef struct klist_{
 	struct klist_ *last;        // previous record
 } KeyList;
 
+/**
+  Table column
+  */
 typedef struct{
 	void *contents;				// contents of table
 	int coltype;				// type of columns
@@ -74,20 +82,26 @@ typedef struct{
 	char colname[FLEN_KEYWORD];	// column name (arg ttype of fits_create_tbl)
 	char format[FLEN_FORMAT];	// format codes (tform)
 	char unit[FLEN_CARD];		// units (tunit)
-}table_column;
+} table_column;
 
+/**
+  FITS table
+  */
 typedef struct{
 	int ncols;                  // amount of columns
 	long nrows;                 // max amount of rows
 	char tabname[FLEN_CARD];	// table name
 	table_column *columns;      // array of structures 'table_column'
-}FITStable;
+} FITStable;
 /*
 typedef struct{
 	size_t amount;		// amount of tables in file
 	FITStable **tables;	// array of pointers to tables
 } FITStables;
 */
+/**
+  FITS image
+  */
 typedef struct{
 	int width;			// width
 	int height;			// height
@@ -95,16 +109,29 @@ typedef struct{
 	void *data; 	    // picture data
 } FITSimage;
 
+typedef union{
+    FITSimage *image;
+    FITStable *table;
+} FITSimtbl;
+
+/**
+  One of HDU
+  */
+typedef struct{
+    int hdutype;        // type of current HDU: image/binary table/ACSII table/bad data
+    FITSimtbl contents;// data contents of HDU
+    KeyList *keylist;   // keylist of given HDU
+} FITSHDU;
+
 typedef struct{
     fitsfile *fp;       // cfitsio file structure
     char *filename;     // filename
-    int Nimages;        // amount of images in file
-    FITSimage **images; // image array
-    int Ntables;        // amount of tables in file
-    FITStable **tables; // table array
-    KeyList *keylist;	// list of options for each key
+    int NHDUs;          // HDU amount
+    FITSHDU *HDUs;      // HDUs array itself
+    FITSHDU *curHDU;    // pointer to current HDU
 } FITS;
 
+/*
 typedef struct _Filter{
     char *name;         // filter name
     FType FilterType;   // filter type
@@ -123,6 +150,7 @@ typedef enum{
     ,MATH_MEAN          // calculate mean for all files
     ,MATH_DIFF          // difference of first and rest files
 } MathOper;
+*/
 
 void keylist_free(KeyList **list);
 KeyList *keylist_add_record(KeyList **list, char *rec);
@@ -144,10 +172,13 @@ void table_print(FITStable *tbl);
 void table_print_all(FITS *fits);
 
 void image_free(FITSimage **ima);
-FITSimage *image_new(size_t h, size_t w, int dtype);
-FITSimage *image_mksimilar(FITSimage *in, int dtype);
+FITSimage *image_read(FITS *fits);
+#define image_datatype_size(d)          (abs(d)/8)
+void *image_data_malloc(size_t w, size_t h, int dtype);
+FITSimage *image_new(size_t w, size_t h, int dtype);
+FITSimage *image_mksimilar(FITSimage *in);
 FITSimage *image_copy(FITSimage *in);
-FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
+//FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
 
 void FITS_free(FITS **fits);
 FITS *FITS_read(char *filename);
@@ -163,6 +194,7 @@ bool file_is_absent(char *name);
 
 
 
-
+/*
 // pointer to image conversion function
 typedef FITS* (*imfuncptr)(FITS *in, Filter *f, Itmarray *i);
+*/
