@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <usefull_macros.h>
 
@@ -59,16 +60,29 @@ KeyList *keylist_get_end(KeyList *list){
 }
 
 /**
- * @brief keylist_add_record - add record to keylist
+ * @brief keylist_add_record - add record to keylist with optional check
  * @param list (io) - pointer to root of list or NULL
  *                      if *root == NULL, created node will be placed there
  * @param rec (i)   - data inserted
- * @return pointer to created node
+ * @param check     - !=0 to check `rec` with fits_parse_template
+ * @return pointer to created node (if list == NULL - don't add created record to any list)
  */
-KeyList *keylist_add_record(KeyList **list, char *rec){
+KeyList *keylist_add_record(KeyList **list, char *rec, int check){
+    if(!rec) return NULL;
     KeyList *node, *last;
     if((node = (KeyList*) MALLOC(KeyList, 1)) == 0)  return NULL; // allocation error
-    node->record = strdup(rec); // insert data
+    int tp = 0, st = 0;
+    if(check){
+        char card[FLEN_CARD];
+        fits_parse_template(rec, card, &tp, &st);
+        if(st){
+            fits_report_error(stderr, st);
+            return NULL;
+        }
+        DBG("\n   WAS: %s\nBECOME: %s\ntp=%d", rec, card, tp);
+        rec = card;
+    }
+    node->record = strdup(rec);
     if(!node->record){
         /// "Не могу скопировать данные"
         WARNX(_("Can't copy data"));
@@ -95,14 +109,17 @@ KeyList *keylist_add_record(KeyList **list, char *rec){
 KeyList *keylist_find_key(KeyList *list, char *key){
     if(!list || !key) return NULL;
     size_t L = strlen(key);
+    DBG("try to find %s", key);
     do{
         if(list->record){
-            if(strncmp(list->record, key, L) == 0){ // key found
+            if(strncasecmp(list->record, key, L) == 0){ // key found
+                DBG("found:\n%s", list->record);
                 return list;
             }
         }
         list = list->next;
     }while(list);
+    DBG("not found");
     return NULL;
 }
 
@@ -115,13 +132,17 @@ KeyList *keylist_find_key(KeyList *list, char *key){
  */
 KeyList *keylist_modify_key(KeyList *list, char *key, char *newval){
     // TODO: look modhead.c in cexamples for protected keys
-    char buf[FLEN_CARD];
+    char buf[FLEN_CARD], test[2*FLEN_CARD];
     KeyList *rec = keylist_find_key(list, key);
     if(!rec) return NULL;
-    char *comm = strchr(rec->record, '/');
-    if(!comm) comm = "";
-    // TODO: use fits_parse_template
-    snprintf(buf, FLEN_CARD, "%-8s=%21s %s", key, newval, comm);
+    snprintf(test, 2*FLEN_CARD, "%s = %s", key, newval);
+    int tp, st = 0;
+    fits_parse_template(test, buf, &tp, &st);
+    if(st){
+        fits_report_error(stderr, st);
+        return NULL;
+    }
+    DBG("new record:\n%s", buf);
     FREE(rec->record);
     rec->record = strdup(buf);
     return rec;
@@ -222,7 +243,7 @@ KeyList *keylist_copy(KeyList *list){
     int n = 0;
     #endif
     do{
-        keylist_add_record(&newlist, list->record);
+        keylist_add_record(&newlist, list->record, 0);
         list = list->next;
         #ifdef EBUG
         ++n;
@@ -269,7 +290,7 @@ KeyList *keylist_read(FITS *fits){
         fits_read_record(fits->fp, j, card, &fst);
         if(fst) fits_report_error(stderr, fst);
         else{
-            KeyList *kl = keylist_add_record(&list, card);
+            KeyList *kl = keylist_add_record(&list, card, 0);
             if(!kl){
                 /// "Не могу добавить запись в список"
                 WARNX(_("Can't add record to list"));
@@ -767,47 +788,102 @@ returning:
     return fits;
 }
 
+static bool keylist_write(KeyList *kl, fitsfile *fp){
+    int st = 0;
+    bool ret = TRUE;
+    if(!fp || !kl) return FALSE;
+    while(kl){
+        if(kl->keyclass > TYP_CMPRS_KEY){ // this record should be written
+            fits_write_record(fp, kl->record, &st);
+            DBG("Write %s, st = %d", kl->record, st);
+            if(st){fits_report_error(stderr, st); st = 0; ret = FALSE;}
+        }
+        kl = kl->next;
+    }
+    return ret;
+}
+
+/**
+ * @brief FITS_write - write FITS file to disk
+ * @param filename   - new filename
+ * @param fits       - structure to write
+ * @return TRUE if all OK
+ */
 bool FITS_write(char *filename, FITS *fits){
     if(!filename || !fits) return FALSE;
-    /*int w = fits->width, h = fits->height, fst = 0;
-    long naxes[2] = {w, h};
-    size_t sz = w * h;
     fitsfile *fp;
+    int fst = 0;
     fits_create_diskfile(&fp, filename, &fst);
+    DBG("create file %s", filename);
     if(fst){fits_report_error(stderr, fst); return FALSE;}
-    // TODO: save FITS files in original (or given by user) data format!
-    // check fits->dtype - does all data fits it
-    fits_create_img(fp, fits->dtype, 2, naxes, &fst);
-    if(fst){fits_report_error(stderr, fst); return FALSE;}
-    if(fits->keylist){ // there's keys
-        KeyList *records = fits->keylist;
-        while(records){
-            char *rec = records->record;
-            records = records->next;
-            // TODO: check types of headers from each record!
-            if(strncmp(rec, "SIMPLE", 6) == 0 || strncmp(rec, "EXTEND", 6) == 0) // key "file does conform ..."
-                continue;
-                // comment of obligatory key in FITS head
-            else if(strncmp(rec, "COMMENT   FITS", 14) == 0 || strncmp(rec, "COMMENT   and Astrophysics", 26) == 0)
-                continue;
-            else if(strncmp(rec, "NAXIS", 5) == 0 || strncmp(rec, "BITPIX", 6) == 0) // NAXIS, NAXISxxx, BITPIX
-                continue;
-            int ret = fits_write_record(fp, rec, &fst);
-            if(fst){fits_report_error(stderr, fst);}
-            else if(ret) WARNX(_("Can't write record %s"), rec);
-        //  DBG("write key: %s", rec);
+    int N = fits->NHDUs;
+    for(int i = 1; i <= N; ++i){
+        FITSHDU *hdu = &fits->HDUs[i];
+        if(!hdu) continue;
+        FITSimage *img;
+        long naxes[2] = {0,0};
+        KeyList *records = hdu->keylist;
+        DBG("HDU #%d (type %d)", i, hdu->hdutype);
+        switch(hdu->hdutype){
+            case IMAGE_HDU:
+                img = hdu->contents.image;
+                if(!img && records){ // something wrong - just write keylist
+                    DBG("create empty image with records");
+                    fits_create_img(fp, SHORT_IMG, 0, naxes, &fst);
+                    if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                    keylist_write(records, fp);
+                    DBG("OK");
+                    continue;
+                }
+                naxes[0] = img->width, naxes[1] = img->height;
+                DBG("create, bitpix: %d, naxes = {%zd, %zd}", img->bitpix, naxes[0], naxes[1]);
+                //fits_create_img(fp, img->bitpix, 2, naxes, &fst);
+                fits_create_img(fp, SHORT_IMG, 2, naxes, &fst);
+                if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                keylist_write(records, fp);
+                DBG("OK, now write image");
+                // TODO: change to original data type according to bitpix or more whide according to min/max
+                DBG("bitpix: %d, dtype: %d", SHORT_IMG, img->dtype);
+                //int bscale = 1, bzero = 32768, status = 0;
+                //fits_set_bscale(fp, bscale, bzero, &status);
+                if(img && img->data){
+                    fits_write_img(fp, TUSHORT, 1, img->width * img->height, img->data, &fst);
+                    //fits_write_img(fp, img->dtype, 1, img->width * img->height, img->data, &fst);
+                    DBG("status: %d", fst);
+                    if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                }
+            break;
+            case BINARY_TBL:
+            case ASCII_TBL:
+                // TODO: save table
+            break;
         }
     }
-    //fits->lasthdu = 1;
-    //FITSFUN(fits_write_record, fp, "COMMENT  modified by simple test routine");
-    fits_write_img(fp, TDOUBLE, 1, sz, fits->data, &fst);
-    if(fst){fits_report_error(stderr, fst); return FALSE;}
-    if(fits->tables) table_write(fits, fp);
+
     fits_close_file(fp, &fst);
-    if(fst){fits_report_error(stderr, fst);}*/
+    if(fst){fits_report_error(stderr, fst);}
     return TRUE;
 }
 
+/**
+ * @brief FITS_rewrite - rewrite file in place
+ * @param fits - pointer to FITS structure
+ * @return TRUE if all OK
+ */
+bool FITS_rewrite(FITS *fits){
+    FNAME();
+    char *nm = tmpnam(NULL);
+    if(!nm){WARN("tmpnam()"); return FALSE;}
+    char *fnm = strrchr(nm, '/');
+    if(!fnm){WARN("strrchr()"); return FALSE;}
+    ++fnm;
+    DBG("make link: %s -> %s", fits->filename, fnm);
+    if(link(fits->filename, fnm)){
+        WARN("link()");
+        return FALSE;
+    }
+    return TRUE;
+}
 
 /**************************************************************************************
  *                                  FITS images                                       *
@@ -819,30 +895,74 @@ void image_free(FITSimage **img){
 }
 
 /**
- * @brief image_malloc - allocate memory for given data type
- * @param w     - image width
- * @param h     - image height
- * @param dtype - data type
+ * @brief image_datatype_size - calculate size of one data element for given bitpix
+ * @param bitpix    - value of BITPIX
+ * @param dtype (o) - nearest type of data to fit input type
+ * @return amount of space need to store one pixel data
+ */
+int image_datatype_size(int bitpix, int *dtype){
+    int s = bitpix/8;
+    if(dtype){
+        switch(s){
+            case 1:
+            case 2:
+            case 4:
+                *dtype = TINT;
+                s = 4;
+            break;
+            case 8:
+                *dtype = TLONG;
+            break;
+            case -4:
+            case -8:
+                *dtype = TDOUBLE;
+                s = 8;
+            break;
+            default:
+                return 0; // wrong bitpix
+        }
+    }
+    DBG("bitpix: %d, dtype=%d, imgs=%d", bitpix, *dtype, s);
+    return s;
+}
+
+/**
+ * @brief image_malloc - allocate memory for given bitpix
+ * @param w      - image width
+ * @param h      - image height
+ * @param pxbytes- amount of bytes to store data from one pixel
  * @return allocated memory
  */
-void *image_data_malloc(size_t w, size_t h, int dtype){
-    void *data = calloc(w*h, image_datatype_size(dtype));
+void *image_data_malloc(size_t w, size_t h, int pxbytes){
+    if(!pxbytes || !w || !h) return NULL;
+    void *data = calloc(w*h, pxbytes);
+    DBG("Allocate %zd members of size %d", w*h, pxbytes);
     if(!data) ERR(_("calloc()"));
     return data;
 }
 
 /**
- * @brief image_new - create an empty image without headers, assign data type to "dtype"
+ * @brief image_new - create an empty image without headers, assign BITPIX to "bitpix"
  * @param w      - image width
  * @param h      - image height
  * @param dtype  - image data type
  * @return
  */
-FITSimage *image_new(size_t  w, size_t h, int dtype){
+FITSimage *image_new(size_t  w, size_t h, int bitpix){
     FITSimage *out = MALLOC(FITSimage, 1);
-    out->data = image_data_malloc(w, h, dtype);
+    int dtype, pxsz = image_datatype_size(bitpix, &dtype);
+    if(w && h){
+        out->data = image_data_malloc(w, h, pxsz);
+        if(!out->data){
+            WARNX(_("Bad w, h or pxsz"));
+            FREE(out);
+            return NULL;
+        }
+    }
     out->width = w;
     out->height = h;
+    out->pxsz = pxsz;
+    out->bitpix = bitpix;
     out->dtype = dtype;
     return out;
 }
@@ -907,7 +1027,7 @@ FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata){
  */
 FITSimage *image_mksimilar(FITSimage *img){
     if(!img || img->height < 1 || img->width < 1) return NULL;
-    return image_new(img->width, img->height, img->dtype);
+    return image_new(img->width, img->height, img->bitpix);
 }
 
 /**
@@ -917,7 +1037,7 @@ FITSimage *image_copy(FITSimage *in){
     FITSimage *out = image_mksimilar(in);
     if(!out) return NULL;
     // TODO: size of data as in original!
-    memcpy(out->data, in->data, sizeof(double)*in->width*in->height);
+    memcpy(out->data, in->data, (in->pxsz)*(in->width)*(in->height));
     return out;
 }
 
@@ -929,20 +1049,30 @@ FITSimage *image_copy(FITSimage *in){
 FITSimage *image_read(FITS *fits){
     // TODO: open not only 2-dimensional files!
     // get image dimensions
-    int naxis, fst = 0, dtype;
+    int naxis, fst = 0, bitpix;
     long naxes[2] = {0,0};
-    fits_get_img_param(fits->fp, 2, &dtype, &naxis, naxes, &fst);
+    fits_get_img_param(fits->fp, 2, &bitpix, &naxis, naxes, &fst);
     if(fst){fits_report_error(stderr, fst); return NULL;}
     if(naxis > 2){
         WARNX(_("Images with > 2 dimensions are not supported"));
         return NULL;
-    }
-    DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], dtype);
+    }/*
+    if(naxis < 2){
+        WARNX(_("Not an image: NAXIS = %d"), naxis);
+        return NULL;
+    }*/
+    DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], bitpix);
 
-    FITSimage *img = image_new(naxes[0], naxes[1], dtype);
+    FITSimage *img = image_new(naxes[0], naxes[1], bitpix);
 
     int stat = 0;
-    fits_read_img(fits->fp, dtype, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
+    if(!img) return NULL;
+    if(!img->data) return img; // empty "image" - no data inside
+    DBG("try to read, dt=%d, sz=%ld", img->dtype, naxes[0]*naxes[1]);
+    //int bscale = 1, bzero = 32768, status = 0;
+    //fits_set_bscale(fits->fp, bscale, bzero, &status);
+    //fits_read_img(fits->fp, img->dtype, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
+    fits_read_img(fits->fp, TUSHORT, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
     if(fst){
         fits_report_error(stderr, fst);
         image_free(&img);

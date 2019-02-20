@@ -94,7 +94,7 @@ link_directories(${${PROJ}_LIBRARY_DIRS})
 add_definitions(-DLOCALEDIR=\"${LOCALEDIR}\"
         -DPACKAGE_VERSION=\"${PROJ_VERSION}\" -DGETTEXT_PACKAGE=\"${PROJ}\"
         -DMINOR_VERSION=\"${MINOR_VERSION}\" -DMID_VERSION=\"${MID_VERSION}\"
-        -DMAJOR_VERSION=\"${MAJOR_VESION}\")
+        -DMAJOR_VERSION=\"${MAJOR_VESION}\" -DVERSION=\"${PROJ_VERSION}\")
 
 # -l
 target_link_libraries(${PROJ} ${${PROJ}_LIBRARIES})

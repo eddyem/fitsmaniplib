@@ -105,7 +105,9 @@ typedef struct{
 typedef struct{
 	int width;			// width
 	int height;			// height
-	int dtype;			// picture data type
+	int bitpix;			// original bitpix
+    int dtype;          // type of stored data
+    int pxsz;           // number of bytes for one pixel data
 	void *data; 	    // picture data
 } FITSimage;
 
@@ -153,7 +155,7 @@ typedef enum{
 */
 
 void keylist_free(KeyList **list);
-KeyList *keylist_add_record(KeyList **list, char *rec);
+KeyList *keylist_add_record(KeyList **list, char *rec, int check);
 KeyList *keylist_find_key(KeyList *list, char *key);
 void keylist_remove_key(KeyList **list, char *key);
 KeyList *keylist_modify_key(KeyList *list, char *key, char *newval);
@@ -173,9 +175,9 @@ void table_print_all(FITS *fits);
 
 void image_free(FITSimage **ima);
 FITSimage *image_read(FITS *fits);
-#define image_datatype_size(d)          (abs(d)/8)
-void *image_data_malloc(size_t w, size_t h, int dtype);
-FITSimage *image_new(size_t w, size_t h, int dtype);
+int image_datatype_size(int bitpix, int *dtype);
+void *image_data_malloc(size_t w, size_t h, int pxbytes);
+FITSimage *image_new(size_t w, size_t h, int bitpix);
 FITSimage *image_mksimilar(FITSimage *in);
 FITSimage *image_copy(FITSimage *in);
 //FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
@@ -184,6 +186,7 @@ void FITS_free(FITS **fits);
 FITS *FITS_read(char *filename);
 FITS *FITS_open(char *filename);
 bool FITS_write(char *filename, FITS *fits);
+bool FITS_rewrite(FITS *fits);
 
 /**************************************************************************************
  *                                    fileops.c                                       *

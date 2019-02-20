@@ -16,6 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+  This example allows to list all keywords in given FITS-file, list amount and types of HDUs in file,
+    add new keywords, modify old keywords.
+  New data could be saved to new file or in place into opened file.
+ */
+
 #include "common.h"
 #include <string.h>
 
@@ -24,6 +30,8 @@ typedef struct{
     int list;           // print keyword list
     int contents;       // print short description of file contents
     char **addrec;      // add some records to keywords in first HDU
+    char *outfile;      // output file name
+    char **modify;      // keys which values should be modified
 } glob_pars;
 
 /*
@@ -43,7 +51,9 @@ myoption cmdlnopts[] = {
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
     {"contents",NO_ARGS,    NULL,   'c',    arg_none,   APTR(&G.contents), _("show short file contents")},
     {"list",    NO_ARGS,    NULL,   'l',    arg_none,   APTR(&G.list),      _("list all keywords")},
-    {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to file (you can add more than one record in once, point more -a)")},
+    {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to first HDU (you can add more than one record in once, point more -a)")},
+    {"output",  NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("save result to file (else save to same file)")},
+    {"modify",  MULT_PAR,   NULL,   'm',    arg_string, APTR(&G.modify),    _("modify values values of given keys (each param should be \"key = new_value\")")},
     end_option
 };
 
@@ -86,7 +96,7 @@ int main(int argc, char *argv[]){
     }
     if(G.contents){
         green("\n\nFile consists of %d HDUs:\n", N);
-        for(int i = 0; i <= N; ++i){
+        for(int i = 1; i <= N; ++i){
             printf("\tHDU #%d - ", i);
             switch(f->HDUs[i].hdutype){
                 case IMAGE_HDU:
@@ -108,8 +118,29 @@ int main(int argc, char *argv[]){
         char **ptr = G.addrec;
         while(*ptr){
             printf("record: %s\n", *ptr);
+            keylist_add_record(&(f->HDUs[1].keylist), *ptr++, 1);
+        }
+    }
+    if(G.modify){
+        char **ptr = G.modify;
+        while(*ptr){
+            printf("modify: %s\n", *ptr);
+            char *val = strchr(*ptr, '=');
+            if(!val){
+                WARNX("should be: 'parameter = value / comment'");
+                continue;
+            }
+            *val++ = 0; // now `val` is value + comment; ptr is key
+            if(!keylist_modify_key(f->HDUs[1].keylist, *ptr, val)){
+                WARNX("key %s not found", *ptr);
+            }
             ++ptr;
         }
+    }
+    if(G.outfile){ // save result to new file
+        FITS_write(G.outfile, f);
+    }else{
+        FITS_rewrite(f);
     }
     return 0;
 }
