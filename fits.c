@@ -22,6 +22,8 @@
 #include "FITSmanip.h"
 
 #include <errno.h>
+#include <libgen.h> // dirname, basename
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -722,7 +724,7 @@ FITS *FITS_open(char *filename){
     FITS *fits = MALLOC(FITS, 1);
     int fst = 0;
     // use fits_open_diskfile instead of fits_open_file to prevent using of extended name syntax
-    fits_open_diskfile(&fits->fp, filename, READWRITE, &fst); // READWRITE allows to modify files on-the-fly
+    fits_open_diskfile(&fits->fp, filename, READONLY, &fst);
     if(fst){
         fits_report_error(stderr, fst);
         FITS_free(&fits);
@@ -805,7 +807,7 @@ static bool keylist_write(KeyList *kl, fitsfile *fp){
 
 /**
  * @brief FITS_write - write FITS file to disk
- * @param filename   - new filename
+ * @param filename   - new filename (with possible cfitsio additions like ! and so on)
  * @param fits       - structure to write
  * @return TRUE if all OK
  */
@@ -813,7 +815,7 @@ bool FITS_write(char *filename, FITS *fits){
     if(!filename || !fits) return FALSE;
     fitsfile *fp;
     int fst = 0;
-    fits_create_diskfile(&fp, filename, &fst);
+    fits_create_file(&fp, filename, &fst);
     DBG("create file %s", filename);
     if(fst){fits_report_error(stderr, fst); return FALSE;}
     int N = fits->NHDUs;
@@ -872,17 +874,34 @@ bool FITS_write(char *filename, FITS *fits){
  */
 bool FITS_rewrite(FITS *fits){
     FNAME();
-    char *nm = tmpnam(NULL);
-    if(!nm){WARN("tmpnam()"); return FALSE;}
-    char *fnm = strrchr(nm, '/');
-    if(!fnm){WARN("strrchr()"); return FALSE;}
-    ++fnm;
-    DBG("make link: %s -> %s", fits->filename, fnm);
-    if(link(fits->filename, fnm)){
-        WARN("link()");
-        return FALSE;
-    }
-    return TRUE;
+    char rlpath[PATH_MAX];
+    if(realpath(fits->filename, rlpath)){do{ // got real path - try to make link
+        char *d = strdup(rlpath);
+        if(!d){ WARN("strdup()"); FREE(d); break; }
+        char *dir = dirname(d);
+        if(!dir){ WARN("dirname()"); FREE(d); break; }
+        char newpath[PATH_MAX];
+        char *nm = tmpnam(NULL);
+        if(!nm){ WARN("tmpnam()"); FREE(d); break; }
+        char *fnm = basename(nm);
+        if(!fnm){ WARN("basename()"); FREE(d); break; }
+        snprintf(newpath, PATH_MAX, "%s/%s", dir, fnm);
+        FREE(d);
+        DBG("make link: %s -> %s", rlpath, newpath);
+        if(link(rlpath, newpath)){ WARN("link()"); break; }
+        if(unlink(rlpath)){ WARN("unlink()"); break; }
+        if(FITS_write(rlpath, fits)){
+            unlink(newpath);
+            return TRUE;
+        }
+        // problems: restore old file
+        if(link(newpath, rlpath)) WARN("link()");
+        if(unlink(newpath)) WARN("unlink()");
+    }while(0);}else WARN(_("Can't get real path for %s, use cfitsio to rewrite"), fits->filename);
+    // Can't get realpath or some other error, try to use cfitsio
+    snprintf(rlpath, PATH_MAX, "!%s", fits->filename);
+    DBG("PATH: %s", rlpath);
+    return FITS_write(rlpath, fits);
 }
 
 /**************************************************************************************

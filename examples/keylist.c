@@ -23,6 +23,7 @@
  */
 
 #include "common.h"
+#include <signal.h>
 #include <string.h>
 
 typedef struct{
@@ -77,6 +78,12 @@ glob_pars *parse_args(int argc, char **argv){
             printf("Ignore extra argument: %s\n", argv[i]);
     }
     return &G;
+}
+
+void ch(int s){
+    signal(s, SIG_IGN);
+    printf("signal: %d\n", s);
+    signal(s, ch);
 }
 
 int main(int argc, char *argv[]){
@@ -137,11 +144,27 @@ int main(int argc, char *argv[]){
             ++ptr;
         }
     }
+    // test for signals handler: ctrl+c, ctrl+z
+    signal(SIGINT, ch);
+    signal(SIGTSTP, ch);
+    // protect critical zone blocking all possible signals:
+    sigset_t mask, oldmask;
+    sigfillset(&mask);
+    sigprocmask(SIG_SETMASK, &mask, &oldmask);
     if(G.outfile){ // save result to new file
         FITS_write(G.outfile, f);
     }else{
         FITS_rewrite(f);
     }
+    DBG("Written! Sleep for 2 seconds in ctitical section");
+    sleep(2);
+    // return ignoring
+    DBG("Unblock signals, sleep for 2 seconds");
+    sigprocmask(SIG_SETMASK, &oldmask, NULL);
+    sleep(2);
+    /*
+     * Do something here
+     */
     return 0;
 }
 

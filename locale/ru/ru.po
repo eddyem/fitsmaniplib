@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2019-02-14 22:15+0300\n"
+        "POT-Creation-Date: 2019-02-21 20:26+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,71 +16,79 @@ msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Content-Type: text/plain; charset=koi8-r\n"
         "Content-Transfer-Encoding: 8bit\n"
 
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:976
+msgid   "Bad w, h or pxsz"
+msgstr  "Неверные значения w, h или pxsz"
+
 #. / "Не могу добавить запись в список"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:701
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:298
 msgid   "Can't add record to list"
-msgstr  ""
+msgstr  "Не могу добавить запись в список"
 
 #. / "Не могу скопировать данные"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:72
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:90
 msgid   "Can't copy data"
-msgstr  ""
+msgstr  "Не могу скопировать данные"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:715
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:900
 #, c-format
-msgid   "Can't open image HDU #%d"
-msgstr  ""
+msgid   "Can't get real path for %s, use cfitsio to rewrite"
+msgstr  "Не могу определить путь (realpath) к %s, использую cfitsio для "
+        "перезаписи"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:650
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:751
 msgid   "Can't read HDU"
-msgstr  ""
+msgstr  "Не могу прочесть HDU"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:333
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:398
 #, c-format
 msgid   "Can't read column %d row %d!"
-msgstr  ""
+msgstr  "Не могу прочесть столбец %d строку %d"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:319
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:384
 #, c-format
 msgid   "Can't read column %d!"
-msgstr  ""
+msgstr  "Не могу прочесть столбец %d!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:342
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:407
 msgid   "Can't read table data type"
-msgstr  ""
+msgstr  "Не могу прочесть тип данных таблицы"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:346
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:411
 msgid   "Can't read table data unit"
-msgstr  ""
+msgstr  "Не могу прочесть единицы измерения данных таблицы"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:609
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:672
 #, c-format
 msgid   "Can't write column %s!"
-msgstr  ""
+msgstr  "Не могу записать столбец %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:599
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:662
 #, c-format
 msgid   "Can't write table %s!"
-msgstr  ""
+msgstr  "Не могу записать таблицу %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:724
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1100
 #, c-format
 msgid   "Found %d pixels with undefined value"
-msgstr  ""
+msgstr  "Найдено %d пикселей с неопределенными значениями"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:664
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1076
 msgid   "Images with > 2 dimensions are not supported"
-msgstr  ""
+msgstr  "Изображения с более чем двумя измерениями не поддерживаются"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:466
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:282
+msgid   "No keywords in given HDU"
+msgstr  "В данном HDU ключи отсутствуют"
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:778
+msgid   "Unknown HDU type"
+msgstr  "Неизвестный тип HDU"
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:527
 msgid   "Unsupported column data type!"
-msgstr  ""
+msgstr  "Неподдерживаемый тип данных столбца!"
 
-#. / Неправильный тип данных
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:841
-msgid   "Wrong data type"
-msgstr  ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:287
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:351
 msgid   "strdup() failed!"
-msgstr  ""
+msgstr  "Не удалось сделать strdup()!"
