@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2019-02-21 20:26+0300\n"
+        "POT-Creation-Date: 2019-02-22 22:46+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -15,10 +15,6 @@ msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "MIME-Version: 1.0\n"
         "Content-Type: text/plain; charset=koi8-r\n"
         "Content-Transfer-Encoding: 8bit\n"
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:976
-msgid   "Bad w, h or pxsz"
-msgstr  "Неверные значения w, h или pxsz"
 
 #. / "Не могу добавить запись в список"
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:298
@@ -30,13 +26,13 @@ msgstr  "Не могу добавить запись в список"
 msgid   "Can't copy data"
 msgstr  "Не могу скопировать данные"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:900
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:915
 #, c-format
 msgid   "Can't get real path for %s, use cfitsio to rewrite"
 msgstr  "Не могу определить путь (realpath) к %s, использую cfitsio для "
         "перезаписи"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:751
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:770
 msgid   "Can't read HDU"
 msgstr  "Не могу прочесть HDU"
 
@@ -68,20 +64,20 @@ msgstr  "Не могу записать столбец %s!"
 msgid   "Can't write table %s!"
 msgstr  "Не могу записать таблицу %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1100
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1113
 #, c-format
 msgid   "Found %d pixels with undefined value"
 msgstr  "Найдено %d пикселей с неопределенными значениями"
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1076
-msgid   "Images with > 2 dimensions are not supported"
-msgstr  "Изображения с более чем двумя измерениями не поддерживаются"
 
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:282
 msgid   "No keywords in given HDU"
 msgstr  "В данном HDU ключи отсутствуют"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:778
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1154
+msgid   "Undefined image type, cant convert to double"
+msgstr  ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:797
 msgid   "Unknown HDU type"
 msgstr  "Неизвестный тип HDU"
 
@@ -92,3 +88,9 @@ msgstr  "Неподдерживаемый тип данных столбца!"
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:351
 msgid   "strdup() failed!"
 msgstr  "Не удалось сделать strdup()!"
+
+#~ msgid        "Bad w, h or pxsz"
+#~ msgstr       "Неверные значения w, h или pxsz"
+
+#~ msgid        "Images with > 2 dimensions are not supported"
+#~ msgstr       "Изображения с более чем двумя измерениями не поддерживаются"

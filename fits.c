@@ -78,7 +78,7 @@ KeyList *keylist_add_record(KeyList **list, char *rec, int check){
         char card[FLEN_CARD];
         fits_parse_template(rec, card, &tp, &st);
         if(st){
-            fits_report_error(stderr, st);
+            FITS_reporterr(&st);
             return NULL;
         }
         DBG("\n   WAS: %s\nBECOME: %s\ntp=%d", rec, card, tp);
@@ -141,7 +141,7 @@ KeyList *keylist_modify_key(KeyList *list, char *key, char *newval){
     int tp, st = 0;
     fits_parse_template(test, buf, &tp, &st);
     if(st){
-        fits_report_error(stderr, st);
+        FITS_reporterr(&st);
         return NULL;
     }
     DBG("new record:\n%s", buf);
@@ -283,14 +283,14 @@ KeyList *keylist_read(FITS *fits){
         return NULL;
     }
     if(fst){
-        fits_report_error(stderr, fst);
+        FITS_reporterr(&fst);
         return NULL;
     }
     DBG("Find %d keys, keypos=%d", nkeys, keypos);
     for(int j = 1; j <= nkeys; ++j){
         char card[FLEN_CARD];
         fits_read_record(fits->fp, j, card, &fst);
-        if(fst) fits_report_error(stderr, fst);
+        if(fst) FITS_reporterr(&fst);
         else{
             KeyList *kl = keylist_add_record(&list, card, 0);
             if(!kl){
@@ -361,16 +361,16 @@ FITStable *table_copy(FITStable *intab){
  * @return
  */
 FITStable *table_read(FITS *fits){
-    int ncols, i, fst = 0, ret;
+    int ncols, i, fst = 0;
     long nrows;
     char extname[FLEN_VALUE];
     fitsfile *fp = fits->fp;
     fits_get_num_rows(fp, &nrows, &fst);
-    if(fst){fits_report_error(stderr, fst); return NULL;}
+    if(fst){FITS_reporterr(&fst); return NULL;}
     fits_get_num_cols(fp, &ncols, &fst);
-    if(fst){fits_report_error(stderr, fst); return NULL;}
+    if(fst){FITS_reporterr(&fst); return NULL;}
     fits_read_key(fp, TSTRING, "EXTNAME", extname, NULL, &fst);
-    if(fst){fits_report_error(stderr, fst); return NULL;}
+    if(fst){FITS_reporterr(&fst); return NULL;}
     DBG("Table named %s with %ld rows and %d columns", extname, nrows, ncols);
     FITStable *tbl = table_new(extname);
     if(!tbl) return NULL;
@@ -378,9 +378,9 @@ FITStable *table_read(FITS *fits){
     for(i = 1; i <= ncols; ++i){
         int typecode;
         long repeat, width;
-        ret = fits_get_coltype(fp, i, &typecode, &repeat, &width, &fst);
-        if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
-        if(ret){
+        fits_get_coltype(fp, i, &typecode, &repeat, &width, &fst);
+        if(fst){
+            FITS_reporterr(&fst);
             WARNX(_("Can't read column %d!"), i);
             continue;
         }
@@ -392,9 +392,9 @@ FITStable *table_read(FITS *fits){
         int64_t nullval = 0;
         int j;
         for(j = 0; j < repeat; ++j){
-            ret = fits_read_col(fp, typecode, i, j=1, 1, 1, (void*)nullval, array, &anynul, &fst);
-            if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
-            if(ret){
+            fits_read_col(fp, typecode, i, j=1, 1, 1, (void*)nullval, array, &anynul, &fst);
+            if(fst){
+                FITS_reporterr(&fst);
                 WARNX(_("Can't read column %d row %d!"), i, j);
                 continue;
             }
@@ -654,11 +654,11 @@ bool table_write(FITS *file){
         DBG("col: %s, form: %s, unit: %s", columns[c], formats[c], units[c]);
     }
     //fits_movabs_hdu(fptr, 2, &hdutype, &status)
-    int ret = fits_create_tbl(fp, hdutype, tbl->nrows, cols,
+    fits_create_tbl(fp, hdutype, tbl->nrows, cols,
                               columns, formats, units, tbl->tabname, &fst);
-    if(fst){fits_report_error(stderr, fst); ret = fst; fst = 0;}
     FREE(columns); FREE(formats); FREE(units);
-    if(ret){
+    if(fst){
+        FITS_reporterr(&fst);
         WARNX(_("Can't write table %s!"), tbl->tabname);
         return FALSE;
     }
@@ -668,7 +668,7 @@ bool table_write(FITS *file){
         int fst = 0;
         fits_write_col(fp, col->coltype, c+1, 1, 1, col->repeat, col->contents, &fst);
         if(fst){
-            fits_report_error(stderr, fst);
+            FITS_reporterr(&fst);
             WARNX(_("Can't write column %s!"), col->colname);
             return FALSE;
         }
@@ -680,6 +680,29 @@ bool table_write(FITS *file){
  *                                  FITS files                                        *
  **************************************************************************************/
 
+/**
+ * @brief FITS_addHDU - add new HDU to FITS file structure
+ * @param fits (io) - fits file to use
+ * @return pointer to new HDU or NULL in case of error
+ */
+FITSHDU *FITS_addHDU(FITS *fits){
+    int hdunum = fits->NHDUs + 1;
+    // add 1 to `hdunum` because HDU numbering starts @1
+    FITSHDU *newhdu = realloc(fits->HDUs, sizeof(FITSHDU)*(1+hdunum));
+    if(!newhdu){
+        WARN("FITS_addHDU, realloc() failed");
+        return NULL;
+    }
+    fits->HDUs = newhdu;
+    fits->curHDU = &fits->HDUs[hdunum];
+    fits->NHDUs = hdunum;
+    return fits->curHDU;
+}
+
+/**
+ * @brief FITS_free - delete FITS structure from memory
+ * @param fits - address of FITS pointer
+ */
 void FITS_free(FITS **fits){
     if(!fits || !*fits) return;
     FITS *f = *fits;
@@ -689,7 +712,9 @@ void FITS_free(FITS **fits){
     int n, N = f->NHDUs;
     for(n = 1; n < N; ++n){
         FITSHDU *hdu = &f->HDUs[n];
+        if(!hdu) continue;
         keylist_free(&hdu->keylist);
+        if(!hdu->contents.image) continue;
         switch(hdu->hdutype){
             case IMAGE_HDU:
                 image_free(&hdu->contents.image);
@@ -706,13 +731,7 @@ void FITS_free(FITS **fits){
 }
 
 /**
-
-  TODO: READWRITE allows to modify files on-the-fly, need to use it!
   TODO: what's about HCOMPRESS?
-
- * read FITS file and fill 'IMAGE' structure (with headers and tables)
- * can't work with image stack - opens the first image met
- * works only with binary tables
  */
 
 /**
@@ -726,7 +745,7 @@ FITS *FITS_open(char *filename){
     // use fits_open_diskfile instead of fits_open_file to prevent using of extended name syntax
     fits_open_diskfile(&fits->fp, filename, READONLY, &fst);
     if(fst){
-        fits_report_error(stderr, fst);
+        FITS_reporterr(&fst);
         FITS_free(&fits);
         return NULL;
     }
@@ -780,11 +799,10 @@ FITS *FITS_read(char *filename){
     }
     if(fst == END_OF_FILE){
         fst = 0;
-    }else goto returning;
+    }
 returning:
     if(fst){
-        fits_report_error(stderr, fst);
-        fst = 0;
+        FITS_reporterr(&fst);
         FITS_free(&fits);
     }
     return fits;
@@ -798,7 +816,7 @@ static bool keylist_write(KeyList *kl, fitsfile *fp){
         if(kl->keyclass > TYP_CMPRS_KEY){ // this record should be written
             fits_write_record(fp, kl->record, &st);
             DBG("Write %s, st = %d", kl->record, st);
-            if(st){fits_report_error(stderr, st); st = 0; ret = FALSE;}
+            if(st){FITS_reporterr(&st); ret = FALSE;}
         }
         kl = kl->next;
     }
@@ -817,13 +835,12 @@ bool FITS_write(char *filename, FITS *fits){
     int fst = 0;
     fits_create_file(&fp, filename, &fst);
     DBG("create file %s", filename);
-    if(fst){fits_report_error(stderr, fst); return FALSE;}
+    if(fst){FITS_reporterr(&fst); return FALSE;}
     int N = fits->NHDUs;
     for(int i = 1; i <= N; ++i){
         FITSHDU *hdu = &fits->HDUs[i];
         if(!hdu) continue;
         FITSimage *img;
-        long naxes[2] = {0,0};
         KeyList *records = hdu->keylist;
         DBG("HDU #%d (type %d)", i, hdu->hdutype);
         switch(hdu->hdutype){
@@ -831,28 +848,26 @@ bool FITS_write(char *filename, FITS *fits){
                 img = hdu->contents.image;
                 if(!img && records){ // something wrong - just write keylist
                     DBG("create empty image with records");
-                    fits_create_img(fp, SHORT_IMG, 0, naxes, &fst);
-                    if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                    fits_create_img(fp, SHORT_IMG, 0, NULL, &fst);
+                    if(fst){FITS_reporterr(&fst); continue;}
                     keylist_write(records, fp);
                     DBG("OK");
                     continue;
                 }
-                naxes[0] = img->width, naxes[1] = img->height;
-                DBG("create, bitpix: %d, naxes = {%zd, %zd}", img->bitpix, naxes[0], naxes[1]);
-                //fits_create_img(fp, img->bitpix, 2, naxes, &fst);
-                fits_create_img(fp, SHORT_IMG, 2, naxes, &fst);
-                if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                DBG("create, bitpix: %d, naxis = %d, totpix = %ld", img->bitpix, img->naxis, img->totpix);
+                fits_create_img(fp, img->bitpix, img->naxis, img->naxes, &fst);
+                //fits_create_img(fp, SHORT_IMG, img->naxis, img->naxes, &fst);
+                if(fst){FITS_reporterr(&fst); continue;}
                 keylist_write(records, fp);
                 DBG("OK, now write image");
-                // TODO: change to original data type according to bitpix or more whide according to min/max
-                DBG("bitpix: %d, dtype: %d", SHORT_IMG, img->dtype);
                 //int bscale = 1, bzero = 32768, status = 0;
                 //fits_set_bscale(fp, bscale, bzero, &status);
                 if(img && img->data){
-                    fits_write_img(fp, TUSHORT, 1, img->width * img->height, img->data, &fst);
+                    DBG("bitpix: %d, dtype: %d", img->bitpix, img->dtype);
+                    fits_write_img(fp, img->dtype, 1, img->totpix, img->data, &fst);
                     //fits_write_img(fp, img->dtype, 1, img->width * img->height, img->data, &fst);
                     DBG("status: %d", fst);
-                    if(fst){fits_report_error(stderr, fst); fst = 0; continue;}
+                    if(fst){FITS_reporterr(&fst); continue;}
                 }
             break;
             case BINARY_TBL:
@@ -863,7 +878,7 @@ bool FITS_write(char *filename, FITS *fits){
     }
 
     fits_close_file(fp, &fst);
-    if(fst){fits_report_error(stderr, fst);}
+    if(fst){FITS_reporterr(&fst);}
     return TRUE;
 }
 
@@ -910,6 +925,7 @@ bool FITS_rewrite(FITS *fits){
 
 void image_free(FITSimage **img){
     FREE((*img)->data);
+    FREE((*img)->naxes);
     FREE(*img);
 }
 
@@ -923,63 +939,70 @@ int image_datatype_size(int bitpix, int *dtype){
     int s = bitpix/8;
     if(dtype){
         switch(s){
-            case 1:
-            case 2:
-            case 4:
-                *dtype = TINT;
-                s = 4;
+            case 1: // BYTE_IMG
+                *dtype = TBYTE;
             break;
-            case 8:
-                *dtype = TLONG;
+            case 2: // SHORT_IMG
+                *dtype = TUSHORT;
             break;
-            case -4:
-            case -8:
+            case 4: // LONG_IMG
+                *dtype = TUINT;
+            break;
+            case 8: // LONGLONG_IMG
+                *dtype = TULONG;
+            break;
+            case -4: // FLOAT_IMG
+                *dtype = TFLOAT;
+            break;
+            case -8: // DOUBLE_IMG
                 *dtype = TDOUBLE;
-                s = 8;
             break;
             default:
                 return 0; // wrong bitpix
         }
     }
     DBG("bitpix: %d, dtype=%d, imgs=%d", bitpix, *dtype, s);
-    return s;
+    return abs(s);
 }
 
 /**
- * @brief image_malloc - allocate memory for given bitpix
- * @param w      - image width
- * @param h      - image height
- * @param pxbytes- amount of bytes to store data from one pixel
+ * @brief image_data_malloc - allocate memory for given bitpix
+ * @param totpix  - total pixels amount
+ * @param pxbytes - number of bytes for each pixel
  * @return allocated memory
  */
-void *image_data_malloc(size_t w, size_t h, int pxbytes){
-    if(!pxbytes || !w || !h) return NULL;
-    void *data = calloc(w*h, pxbytes);
-    DBG("Allocate %zd members of size %d", w*h, pxbytes);
-    if(!data) ERR(_("calloc()"));
+void *image_data_malloc(long totpix, int pxbytes){
+    if(!pxbytes || !totpix) return NULL;
+    void *data = calloc(totpix, pxbytes);
+    DBG("Allocate %zd members of size %d", totpix, pxbytes);
+    if(!data) ERR("calloc()");
     return data;
 }
 
 /**
  * @brief image_new - create an empty image without headers, assign BITPIX to "bitpix"
- * @param w      - image width
- * @param h      - image height
- * @param dtype  - image data type
- * @return
+ * @param naxis  - number of dimensions
+ * @param naxes  - sizes by each dimension
+ * @param bitpix - BITPIX for given image
+ * @return allocated structure or NULL
  */
-FITSimage *image_new(size_t  w, size_t h, int bitpix){
+FITSimage *image_new(int naxis, long *naxes, int bitpix){
     FITSimage *out = MALLOC(FITSimage, 1);
     int dtype, pxsz = image_datatype_size(bitpix, &dtype);
-    if(w && h){
-        out->data = image_data_malloc(w, h, pxsz);
+    long totpix = 0;
+    if(naxis){ // not empty image
+        totpix = 1;
+        for(int i = 0; i < naxis; ++i) if(naxes[i]) totpix *= naxes[i];
+        out->data = image_data_malloc(totpix, pxsz);
         if(!out->data){
-            WARNX(_("Bad w, h or pxsz"));
             FREE(out);
             return NULL;
         }
     }
-    out->width = w;
-    out->height = h;
+    out->totpix = totpix;
+    out->naxes = MALLOC(long, naxis);
+    memcpy(out->naxes, naxes, sizeof(long)*naxis);
+    out->naxis = naxis;
     out->pxsz = pxsz;
     out->bitpix = bitpix;
     out->dtype = dtype;
@@ -1045,8 +1068,7 @@ FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata){
  * create an empty copy of image "in" without headers, assign data type to "dtype"
  */
 FITSimage *image_mksimilar(FITSimage *img){
-    if(!img || img->height < 1 || img->width < 1) return NULL;
-    return image_new(img->width, img->height, img->bitpix);
+    return image_new(img->naxis, img->naxes, img->bitpix);
 }
 
 /**
@@ -1055,8 +1077,7 @@ FITSimage *image_mksimilar(FITSimage *img){
 FITSimage *image_copy(FITSimage *in){
     FITSimage *out = image_mksimilar(in);
     if(!out) return NULL;
-    // TODO: size of data as in original!
-    memcpy(out->data, in->data, (in->pxsz)*(in->width)*(in->height));
+    memcpy(out->data, in->data, (in->pxsz)*(in->totpix));
     return out;
 }
 
@@ -1069,35 +1090,75 @@ FITSimage *image_read(FITS *fits){
     // TODO: open not only 2-dimensional files!
     // get image dimensions
     int naxis, fst = 0, bitpix;
-    long naxes[2] = {0,0};
-    fits_get_img_param(fits->fp, 2, &bitpix, &naxis, naxes, &fst);
-    if(fst){fits_report_error(stderr, fst); return NULL;}
-    if(naxis > 2){
-        WARNX(_("Images with > 2 dimensions are not supported"));
-        return NULL;
-    }/*
-    if(naxis < 2){
-        WARNX(_("Not an image: NAXIS = %d"), naxis);
-        return NULL;
-    }*/
-    DBG("got image %ldx%ld pix, bitpix=%d", naxes[0], naxes[1], bitpix);
-
-    FITSimage *img = image_new(naxes[0], naxes[1], bitpix);
-
+    fits_get_img_dim(fits->fp, &naxis, &fst);
+    if(fst){FITS_reporterr(&fst); return NULL;}
+    long *naxes = MALLOC(long, naxis);
+    fits_get_img_param(fits->fp, naxis, &bitpix, &naxis, naxes, &fst);
+    if(fst){FITS_reporterr(&fst); return NULL;}
+    FITSimage *img = image_new(naxis, naxes, bitpix);
+    FREE(naxes);
     int stat = 0;
     if(!img) return NULL;
     if(!img->data) return img; // empty "image" - no data inside
-    DBG("try to read, dt=%d, sz=%ld", img->dtype, naxes[0]*naxes[1]);
+    DBG("try to read, dt=%d, sz=%ld", img->dtype, img->totpix);
     //int bscale = 1, bzero = 32768, status = 0;
     //fits_set_bscale(fits->fp, bscale, bzero, &status);
-    //fits_read_img(fits->fp, img->dtype, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
-    fits_read_img(fits->fp, TUSHORT, 1, naxes[0]*naxes[1], NULL, img->data, &stat, &fst);
+    fits_read_img(fits->fp, img->dtype, 1, img->totpix, NULL, img->data, &stat, &fst);
+    //fits_read_img(fits->fp, TUSHORT, 1, img->totpix, NULL, img->data, &stat, &fst);
     if(fst){
-        fits_report_error(stderr, fst);
+        FITS_reporterr(&fst);
         image_free(&img);
         return NULL;
     }
     if(stat) WARNX(_("Found %d pixels with undefined value"), stat);
     DBG("ready");
     return img;
+}
+
+/**
+ * @brief image2double convert image values to double
+ * @param img - input image
+ * @return array of double with size imt->totpix
+ */
+double *image2double(FITSimage *img){
+    size_t tot = img->totpix;
+    double *ret = MALLOC(double, tot);
+    double (*fconv)(uint8_t *x);
+    double ubyteconv(uint8_t *data){return (double)*data;}
+    double ushortconv(uint8_t *data){return (double)*((uint16_t*)data);}
+    double ulongconv(uint8_t *data){return (double)*((uint32_t*)data);}
+    double ulonglongconv(uint8_t *data){return (double)*((uint64_t*)data);}
+    double floatconv(uint8_t *data){return (double)*((float*)data);}
+    initomp();
+    switch(img->dtype){
+        case TBYTE:
+            fconv = ubyteconv;
+        break;
+        case TUSHORT:
+            fconv = ushortconv;
+        break;
+        case TUINT:
+            fconv = ulongconv;
+        break;
+        case TULONG:
+            fconv = ulonglongconv;
+        break;
+        case TFLOAT:
+            fconv = floatconv;
+        break;
+        case TDOUBLE:
+            memcpy(ret, img->data, sizeof(double)*img->totpix);
+            return ret;
+        break;
+        default:
+            WARNX(_("Undefined image type, cant convert to double"));
+            FREE(ret);
+            return NULL;
+    }
+    uint8_t *din = img->data;
+    OMP_FOR()
+    for(size_t i = 0; i < tot; i += img->pxsz){
+        ret[i] = fconv(&din[i]);
+    }
+    return ret;
 }

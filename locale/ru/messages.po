@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-02-21 20:26+0300\n"
+"POT-Creation-Date: 2019-02-22 22:46+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -67,28 +67,24 @@ msgstr ""
 msgid "Can't write column %s!"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:751
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:770
 msgid "Can't read HDU"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:778
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:797
 msgid "Unknown HDU type"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:900
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:915
 #, c-format
 msgid "Can't get real path for %s, use cfitsio to rewrite"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:976
-msgid "Bad w, h or pxsz"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1076
-msgid "Images with > 2 dimensions are not supported"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1100
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1113
 #, c-format
 msgid "Found %d pixels with undefined value"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1154
+msgid "Undefined image type, cant convert to double"
 msgstr ""

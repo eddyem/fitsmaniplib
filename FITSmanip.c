@@ -20,10 +20,33 @@
 #include <omp.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <usefull_macros.h>
 
-static inline void initomp(){
+/*
+ * Here are some common functions used in library
+ */
+
+/**
+ * @brief initomp init optimal CPU number for OPEN MP
+ */
+void initomp(){
+    static bool got = FALSE;
+    if(got) return;
     int cpunumber = sysconf(_SC_NPROCESSORS_ONLN);
     if(omp_get_max_threads() != cpunumber)
         omp_set_num_threads(cpunumber);
+    got = TRUE;
 }
 
+/**
+ * @brief FITS_reporterr - show error in red
+ * @param errcode
+ */
+void FITS_reporterr(int *errcode){
+    if(isatty(STDERR_FILENO))
+        fprintf(stderr, COLOR_RED);
+    fits_report_error(stderr, *errcode);
+    if(isatty(STDERR_FILENO))
+        fprintf(stderr, COLOR_OLD);
+    *errcode = 0;
+}

@@ -55,6 +55,7 @@ myoption cmdlnopts[] = {
     {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to first HDU (you can add more than one record in once, point more -a)")},
     {"output",  NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("save result to file (else save to same file)")},
     {"modify",  MULT_PAR,   NULL,   'm',    arg_string, APTR(&G.modify),    _("modify values values of given keys (each param should be \"key = new_value\")")},
+    {"infile",  NEED_ARG,   NULL,   'i',    arg_string, APTR(&G.fitsname),  _("input file name (you can also point it without any keys)")},
     end_option
 };
 
@@ -72,7 +73,7 @@ glob_pars *parse_args(int argc, char **argv){
     // parse arguments
     parseargs(&argc, &argv, cmdlnopts);
     if(help) showhelp(-1, cmdlnopts);
-    if(argc)(G.fitsname = strdup(argv[0]));
+    if(argc && !G.fitsname)(G.fitsname = strdup(argv[0]));
     if(argc > 1){
         for (i = 1; i < argc; i++)
             printf("Ignore extra argument: %s\n", argv[i]);
@@ -84,6 +85,16 @@ void ch(int s){
     signal(s, SIG_IGN);
     printf("signal: %d\n", s);
     signal(s, ch);
+}
+
+void print_imgHDU(FITSimage *image){
+    printf("Image: naxis=%d, totpix=%ld, ", image->naxis, image->totpix);
+    printf("naxes=(");
+    for(int i = 0; i < image->naxis; ++i)
+        printf("%s%ld", i?", ":"", image->naxes[i]);
+    if(image->naxis) printf("), ");
+    else printf("none), ");
+    printf("bitpix=%d, dtype=%d", image->bitpix, image->dtype);
 }
 
 int main(int argc, char *argv[]){
@@ -107,7 +118,7 @@ int main(int argc, char *argv[]){
             printf("\tHDU #%d - ", i);
             switch(f->HDUs[i].hdutype){
                 case IMAGE_HDU:
-                    printf("Image");
+                    print_imgHDU(f->HDUs[i].contents.image);
                 break;
                 case ASCII_TBL:
                     printf("ASCII table");
@@ -121,11 +132,12 @@ int main(int argc, char *argv[]){
             printf("\n");
         }
     }
+    int differs = 0;
     if(G.addrec){
         char **ptr = G.addrec;
         while(*ptr){
             printf("record: %s\n", *ptr);
-            keylist_add_record(&(f->HDUs[1].keylist), *ptr++, 1);
+            if(keylist_add_record(&(f->HDUs[1].keylist), *ptr++, 1)) differs = 1;
         }
     }
     if(G.modify){
@@ -140,28 +152,30 @@ int main(int argc, char *argv[]){
             *val++ = 0; // now `val` is value + comment; ptr is key
             if(!keylist_modify_key(f->HDUs[1].keylist, *ptr, val)){
                 WARNX("key %s not found", *ptr);
-            }
+            }else differs = 1;
             ++ptr;
         }
     }
-    // test for signals handler: ctrl+c, ctrl+z
-    signal(SIGINT, ch);
-    signal(SIGTSTP, ch);
-    // protect critical zone blocking all possible signals:
-    sigset_t mask, oldmask;
-    sigfillset(&mask);
-    sigprocmask(SIG_SETMASK, &mask, &oldmask);
-    if(G.outfile){ // save result to new file
-        FITS_write(G.outfile, f);
-    }else{
-        FITS_rewrite(f);
+    if(differs){ // file differs, need to save new file
+        // test for signals handler: ctrl+c, ctrl+z
+        signal(SIGINT, ch);
+        signal(SIGTSTP, ch);
+        // protect critical zone blocking all possible signals:
+        sigset_t mask, oldmask;
+        sigfillset(&mask);
+        sigprocmask(SIG_SETMASK, &mask, &oldmask);
+        if(G.outfile){ // save result to new file
+            FITS_write(G.outfile, f);
+        }else{
+            FITS_rewrite(f);
+        }
+        DBG("Written! Sleep for 2 seconds in ctitical section");
+        sleep(2);
+        // return ignoring
+        DBG("Unblock signals, sleep for 2 seconds");
+        sigprocmask(SIG_SETMASK, &oldmask, NULL);
+        sleep(2);
     }
-    DBG("Written! Sleep for 2 seconds in ctitical section");
-    sleep(2);
-    // return ignoring
-    DBG("Unblock signals, sleep for 2 seconds");
-    sigprocmask(SIG_SETMASK, &oldmask, NULL);
-    sleep(2);
     /*
      * Do something here
      */

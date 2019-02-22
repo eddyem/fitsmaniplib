@@ -103,8 +103,9 @@ typedef struct{
   FITS image
   */
 typedef struct{
-	int width;			// width
-	int height;			// height
+	int naxis;			// amount of image dimensions
+	long *naxes;		// dimensions
+    long totpix;        // total pixels amount
 	int bitpix;			// original bitpix
     int dtype;          // type of stored data
     int pxsz;           // number of bytes for one pixel data
@@ -176,12 +177,14 @@ void table_print_all(FITS *fits);
 void image_free(FITSimage **ima);
 FITSimage *image_read(FITS *fits);
 int image_datatype_size(int bitpix, int *dtype);
-void *image_data_malloc(size_t w, size_t h, int pxbytes);
-FITSimage *image_new(size_t w, size_t h, int bitpix);
+void *image_data_malloc(long totpix, int pxbytes);
+FITSimage *image_new(int naxis, long *naxes, int bitpix);
 FITSimage *image_mksimilar(FITSimage *in);
 FITSimage *image_copy(FITSimage *in);
+double *image2double(FITSimage *img);
 //FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
 
+FITSHDU *FITS_addHDU(FITS *fits);
 void FITS_free(FITS **fits);
 FITS *FITS_read(char *filename);
 FITS *FITS_open(char *filename);
@@ -195,7 +198,11 @@ bool FITS_rewrite(FITS *fits);
 char* make_filename(char *buff, size_t buflen, char *prefix, char *suffix);
 bool file_is_absent(char *name);
 
-
+/**************************************************************************************
+ *                                   FITSmanip.c                                      *
+ **************************************************************************************/
+void FITS_reporterr(int *errcode);
+void initomp();
 
 /*
 // pointer to image conversion function
