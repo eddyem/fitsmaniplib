@@ -24,11 +24,15 @@
 #include <float.h>
 #include <math.h>
 #include <string.h>
+#include <strings.h>
 
 typedef struct{
     char *outfile;      // output file name (for single operation)
     char **infiles;     // input files list
     int Ninfiles;       // input files number
+    char *add;          // add some value to all pixels
+    double mult;        // multiply all pixels by some value
+    int rmneg;          // remove negative values (assign them to 0)
 } glob_pars;
 
 /*
@@ -36,6 +40,7 @@ typedef struct{
  */
 int help;
 glob_pars G = {
+    .mult = 1.,
 };
 
 /*
@@ -46,6 +51,9 @@ myoption cmdlnopts[] = {
 // common options
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
     {"outfile", NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("output file name (collect all input files)")},
+    {"add",     NEED_ARG,   NULL,   'a',    arg_string, APTR(&G.add),       _("add some value (double, or 'mean', 'std', 'min', 'max')")},
+    {"multiply",NEED_ARG,   NULL,   'm',    arg_double, APTR(&G.mult),      _("multiply by some value (double, operation run after adding)")},
+    {"rmneg",   NO_ARGS,    NULL,   'z',    arg_none,   APTR(&G.rmneg),     _("remove negative values (assign them to 0)")},
     end_option
 };
 
@@ -105,6 +113,39 @@ void printstat(imgstat *stat){
     printf("MEAN=%g\nSTD=%g\nMIN=%g\nMAX=%g\n", stat->mean, stat->std, stat->min, stat->max);
 }
 
+bool addsomething(FITSimage *img, double *dimg, imgstat *stat){
+    if(!G.add || !img || !stat) return FALSE;
+    // parser:
+    char *eptr;
+    double val = 1., addval = 0.;
+    val = strtod(G.add, &eptr);
+    if(eptr == G.add && *G.add == '-'){++eptr; val = -1.;}
+    if(*eptr){ // something more
+        if(strncasecmp(eptr, "mean", 4) == 0) addval = stat->mean;
+        else if(strncasecmp(eptr, "std", 3) == 0) addval = stat->std;
+        else if(strncasecmp(eptr, "min", 3) == 0) addval = stat->min;
+        else if(strncasecmp(eptr, "max", 3) == 0) addval = stat->max;
+    }
+    if(fabs(val) > DBL_EPSILON) addval *= val;
+    if(fabs(addval) > DBL_EPSILON) val = addval;
+    DBG("Add value %g", val);
+    if(fabs(val) < 2.*DBL_EPSILON) return FALSE;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i)
+        dimg[i] += val;
+    return TRUE;
+}
+
+bool multbysomething(FITSimage *img, double *dimg){
+    if(!img || !dimg) return FALSE;
+    if(fabs(G.mult) < 2*DBL_EPSILON) return FALSE;
+    DBG("multiply by %g", G.mult);
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i)
+        dimg[i] *= G.mult;
+    return TRUE;
+}
+
 bool process_fitsfile(char *inname, FITS *output){
     DBG("File %s", inname);
     bool mod = FALSE;
@@ -129,16 +170,39 @@ bool process_fitsfile(char *inname, FITS *output){
     }
     if(!f->curHDU){
         WARNX("Didn't find image HDU in %s", inname);
-    }else{ // OK, we have an image and can do something with it
-        green("\tGet image from this HDU.\n");
-        FITSimage *img = f->curHDU->contents.image;
-        double *dImg = image2double(img);
-        // calculate image statistics
-        imgstat *stat = get_imgstat(dImg, img->totpix);
-        printstat(stat);
-        //mod = TRUE;
-        FREE(dImg);
+        FITS_free(&f);
+        return FALSE;
     }
+    // OK, we have an image and can do something with it
+    green("\tGet image from this HDU.\n");
+    FITSimage *img = f->curHDU->contents.image;
+    double *dImg = image2double(img);
+    // calculate image statistics
+    imgstat *stat = get_imgstat(dImg, img->totpix);
+    printstat(stat);
+    DBG("i[1000] = %d, o[1000]=%g", ((uint16_t*)img->data)[1000], dImg[1000]);
+    if(G.add){
+        if(addsomething(img, dImg, stat)) mod = TRUE;
+    }
+    DBG("ADD: i[1000]=%g", dImg[1000]);
+    if(fabs(G.mult - 1.) > DBL_EPSILON){
+        if(multbysomething(img, dImg)) mod = TRUE;
+    }
+    DBG("MUL: i[1000]=%g", dImg[1000]);
+    if(G.rmneg){
+        DBG("REMOVE negative values");
+        OMP_FOR()
+        for(long i = 0; i < img->totpix; ++i){
+            if(dImg[i] < 0.) dImg[i] = 0.;
+            mod = TRUE;
+        }
+    }
+    DBG("NEG: i[1000]=%g", dImg[1000]);
+    if(mod){ // modified -> change file type
+        image_rebuild(img, dImg);
+        DBG("i[1000]=%g", dImg[1000]);
+    }
+    FREE(dImg);
     if(mod || output){ // file modified (or output file pointed), write differences
         if(!output){
             green("Rewrite file %s.\n", f->filename);
@@ -166,6 +230,7 @@ int main(int argc, char *argv[]){
         ofits = MALLOC(FITS, 1);
         ofits->filename = G.outfile;
     }
+    initomp();
     for(int i = 0; i < G.Ninfiles; ++i){
         if(process_fitsfile(G.infiles[i], ofits)) mod = 1;
     }

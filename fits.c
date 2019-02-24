@@ -940,7 +940,7 @@ int image_datatype_size(int bitpix, int *dtype){
     if(dtype){
         switch(s){
             case 1: // BYTE_IMG
-                *dtype = TBYTE;
+                *dtype = TBYTE; // uchar
             break;
             case 2: // SHORT_IMG
                 *dtype = TUSHORT;
@@ -1007,6 +1007,104 @@ FITSimage *image_new(int naxis, long *naxes, int bitpix){
     out->bitpix = bitpix;
     out->dtype = dtype;
     return out;
+}
+
+// function for qsort
+static int cmpdbl(const void *d1, const void *d2){
+    register double D1 = *(double*)d1, D2 = *(double*)d2;
+    if(fabs(D1 - D2) < DBL_EPSILON) return 0;
+    if(D1 > D2) return 1;
+    else return -1;
+}
+
+// functions to convert double to different datatypes
+static void convu8(FITSimage *img, double *dimg){
+    uint8_t *dptr = (uint8_t*) img->data;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i){
+        dptr[i] = (uint8_t) dimg[i];
+    }
+}
+static void convu16(FITSimage *img, double *dimg){
+    uint16_t *dptr = (uint16_t*) img->data;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i){
+        dptr[i] = (uint16_t) dimg[i];
+    }
+}
+static void convu32(FITSimage *img, double *dimg){
+    uint32_t *dptr = (uint32_t*) img->data;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i){
+        dptr[i] = (uint32_t) dimg[i];
+    }
+}
+static void convu64(FITSimage *img, double *dimg){
+    uint64_t *dptr = (uint64_t*) img->data;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i){
+        dptr[i] = (uint64_t) dimg[i];
+    }
+}
+static void convf(FITSimage *img, double *dimg){
+    float *dptr = (float*) img->data;
+    OMP_FOR()
+    for(long i = 0; i < img->totpix; ++i){
+        dptr[i] = (float) dimg[i];
+    }
+}
+
+/**
+ * @brief image_rebuild substitute content of image with array dimg, change its output type
+ * @param img  - input image
+ * @param dimg - data to change
+ * @return rebuilt image; array dimg no longer used an can be FREEd
+ */
+FITSimage *image_rebuild(FITSimage *img, double *dimg){
+    if(!img || !dimg) return NULL;
+    // first we should calculate statistics of new image
+    double *sr = MALLOC(double, img->totpix);
+    memcpy(sr, dimg, sizeof(double)*img->totpix);
+    qsort(sr, img->totpix, sizeof(double), cmpdbl);
+    double mindiff = DBL_MAX;
+    bool isint = TRUE;
+    for(long i = 1; i < img->totpix; ++i){
+        double d = fabs(sr[i] - sr[i-1]);
+        if(d > DBL_EPSILON && d < mindiff) mindiff = d;
+        if(fabs(d - floor(d)) > DBL_EPSILON) isint = FALSE;
+    }
+    // now we know min, max and minimal difference between elements
+    double min = sr[0], max = sr[img->totpix-1];
+    FREE(sr);
+    DBG("min: %g, max: %g, mindiff: %g", min, max, mindiff);
+    int bitpix = -64; // double by default
+    void (*convdata)(FITSimage*, double*) = NULL;
+    if(isint)do{ // check which integer type will suits better
+        DBG("INTEGER?");
+        if(min < 0){ isint = FALSE; break;} // TODO: correct with BZERO
+        if(max < UINT8_MAX){bitpix = 8; convdata = convu8; break; }
+        if(max < UINT16_MAX){bitpix = 16; convdata = convu16; break; }
+        if(max < UINT32_MAX){bitpix = 32; convdata = convu32; break; }
+        if(max < UINT64_MAX){bitpix = 64; convdata = convu64; break; }
+    }while(0);
+    if(!isint){ // float or double
+        DBG("mindiff: %g(%g), min: %g(%g), max: %g(%g)", mindiff,FLT_EPSILON,
+            min, FLT_MIN, max, FLT_MAX);
+        if(mindiff > FLT_EPSILON && (min > -FLT_MAX) && max < FLT_MAX){
+            bitpix = -32;
+            convdata = convf;
+        }
+    }
+    DBG("NOW: bitpix = %d", bitpix);
+    img->bitpix = bitpix;
+    void *data = calloc(img->totpix, abs(bitpix/8));
+    if(!data){ WARN("calloc()"); return NULL; }
+    FREE(img->data);
+    img->data = data;
+    if(convdata) convdata(img, dimg);
+    else memcpy(img->data, dimg, sizeof(double)*img->totpix);
+    img->pxsz = image_datatype_size(bitpix, &img->dtype);
+    return img;
 }
 
 /**
@@ -1157,8 +1255,8 @@ double *image2double(FITSimage *img){
     }
     uint8_t *din = img->data;
     OMP_FOR()
-    for(size_t i = 0; i < tot; i += img->pxsz){
-        ret[i] = fconv(&din[i]);
+    for(size_t i = 0; i < tot; ++i){
+        ret[i] = fconv(&din[i*img->pxsz]);
     }
     return ret;
 }

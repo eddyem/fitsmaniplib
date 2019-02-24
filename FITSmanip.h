@@ -17,8 +17,18 @@
  */
 
 #include <fitsio.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+#define Stringify(x) #x
+#define OMP_FOR(x) _Pragma(Stringify(omp parallel for x))
+#ifndef MAX
+#define MAX(x,y) ((x) > (y) ? (x) : (y))
+#endif
+#ifndef MIN
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
+#endif
 
 /**************************************************************************************
  *                                      fits.c                                        *
@@ -176,6 +186,7 @@ void table_print_all(FITS *fits);
 
 void image_free(FITSimage **ima);
 FITSimage *image_read(FITS *fits);
+FITSimage *image_rebuild(FITSimage *img, double *dimg);
 int image_datatype_size(int bitpix, int *dtype);
 void *image_data_malloc(long totpix, int pxbytes);
 FITSimage *image_new(int naxis, long *naxes, int bitpix);

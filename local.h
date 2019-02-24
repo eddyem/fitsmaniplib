@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <float.h> // xx_EPSILON etc.
 
 #if defined GETTEXT
 #include <libintl.h>
@@ -33,12 +34,4 @@
 #define DBL_MAX        (1.7976931348623157e+308)
 #endif
 
-#define Stringify(x) #x
-#define OMP_FOR(x) _Pragma(Stringify(omp parallel for x))
-#ifndef MAX
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
-#endif
-#ifndef MIN
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
-#endif
 
