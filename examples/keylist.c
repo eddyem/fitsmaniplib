@@ -38,8 +38,8 @@ typedef struct{
 /*
  * here are global parameters initialisation
  */
-int help;
-glob_pars G; /* = {
+static int help;
+static glob_pars G; /* = {
     ;
 };*/
 
@@ -47,14 +47,14 @@ glob_pars G; /* = {
  * Define command line options by filling structure:
  *  name        has_arg     flag    val     type        argptr              help
 */
-myoption cmdlnopts[] = {
+static myoption cmdlnopts[] = {
 // common options
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
     {"contents",NO_ARGS,    NULL,   'c',    arg_none,   APTR(&G.contents), _("show short file contents")},
     {"list",    NO_ARGS,    NULL,   'l',    arg_none,   APTR(&G.list),      _("list all keywords")},
     {"addrec",  MULT_PAR,   NULL,   'a',    arg_string, APTR(&G.addrec),    _("add record to first HDU (you can add more than one record in once, point more -a)")},
     {"output",  NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("save result to file (else save to same file)")},
-    {"modify",  MULT_PAR,   NULL,   'm',    arg_string, APTR(&G.modify),    _("modify values values of given keys (each param should be \"key = new_value\")")},
+    {"modify",  MULT_PAR,   NULL,   'm',    arg_string, APTR(&G.modify),    _("modify values of given keys (each param should be \"key = new_value\")")},
     {"infile",  NEED_ARG,   NULL,   'i',    arg_string, APTR(&G.fitsname),  _("input file name (you can also point it without any keys)")},
     end_option
 };
@@ -66,9 +66,9 @@ myoption cmdlnopts[] = {
  * @param argv - copy of argv from main
  * @return allocated structure with global parameters
  */
-glob_pars *parse_args(int argc, char **argv){
+static glob_pars *parse_args(int argc, char **argv){
     int i;
-    char *helpstring = "Usage: %%s [args] infile.fits\n\n\tWhere args are:\n";
+    char *helpstring = "Usage: %s [args] infile.fits\n\n\tWhere args are:\n";
     change_helpstring(helpstring);
     // parse arguments
     parseargs(&argc, &argv, cmdlnopts);
@@ -81,13 +81,13 @@ glob_pars *parse_args(int argc, char **argv){
     return &G;
 }
 
-void ch(int s){
+static void ch(int s){
     signal(s, SIG_IGN);
     printf("signal: %d\n", s);
     signal(s, ch);
 }
 
-void print_imgHDU(FITSimage *image){
+static void print_imgHDU(FITSimage *image){
     printf("Image: naxis=%d, totpix=%ld, ", image->naxis, image->totpix);
     printf("naxes=(");
     for(int i = 0; i < image->naxis; ++i)

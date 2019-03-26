@@ -9,16 +9,9 @@ project(${PROJ} VERSION ${PROJ_VERSION} LANGUAGES C)
 
 # default flags
 set(CMAKE_C_FLAGS "${CFLAGS} -O2")
-set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS}")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -Wextra -Wall -Werror -W")
+set(CMAKE_C_FLAGS_RELEASE "")
+set(CMAKE_C_FLAGS_DEBUG "-Wextra -Wall -Werror -W")
 set(CMAKE_COLOR_MAKEFILE ON)
-
-find_package(OpenMP)
-if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
 
 # cmake -DDEBUG=1 -> debugging
 if(DEFINED DEBUG AND DEBUG EQUAL 1)
@@ -34,9 +27,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		message("install to ${CMAKE_CURRENT_SOURCE_DIR}/install ")
 		set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/install)
 	endif()
-	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_DEBUG})
-else()
-	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_RELEASE})
+	#set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_DEBUG})
+#else()
+#	set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS_RELEASE})
 endif()
 
 message("Build type: ${CMAKE_BUILD_TYPE}")

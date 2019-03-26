@@ -5,6 +5,6 @@ includedir=${prefix}/include
 
 Name: @PROJ@
 Description: Library with a lot of usefull snippets
-Version: @VERSION@
+Version: @PROJ_VERSION@
 Libs: -L${libdir} -l@PROJ@
 Cflags: -I${includedir}

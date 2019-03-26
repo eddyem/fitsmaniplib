@@ -15,7 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+
 #include <float.h> // xx_EPSILON etc.
+#include <linux/limits.h> // PATH_MAX
 
 #if defined GETTEXT
 #include <libintl.h>

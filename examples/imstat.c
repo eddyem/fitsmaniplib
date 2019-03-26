@@ -38,8 +38,8 @@ typedef struct{
 /*
  * here are global parameters initialisation
  */
-int help;
-glob_pars G = {
+static int help;
+static glob_pars G = {
     .mult = 1.,
 };
 
@@ -47,7 +47,7 @@ glob_pars G = {
  * Define command line options by filling structure:
  *  name        has_arg     flag    val     type        argptr              help
 */
-myoption cmdlnopts[] = {
+static myoption cmdlnopts[] = {
 // common options
     {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
     {"outfile", NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("output file name (collect all input files)")},
@@ -71,9 +71,9 @@ typedef struct{
  * @param argv - copy of argv from main
  * @return allocated structure with global parameters
  */
-glob_pars *parse_args(int argc, char **argv){
+static glob_pars *parse_args(int argc, char **argv){
     int i;
-    char *helpstring = "Usage: %%s [args] input files\n"
+    char *helpstring = "Usage: %s [args] input files\n"
             "Get statistics and modify images from first image HDU of each input file\n"
             "\tWhere args are:\n";
     change_helpstring(helpstring);
@@ -89,7 +89,7 @@ glob_pars *parse_args(int argc, char **argv){
     return &G;
 }
 
-imgstat *get_imgstat(double *dimg, long totpix){
+static imgstat *get_imgstat(double *dimg, long totpix){
     static imgstat st;
     if(!dimg || !totpix) return &st; // return some trash if wrong data
     st.min = dimg[0];
@@ -108,12 +108,12 @@ imgstat *get_imgstat(double *dimg, long totpix){
     return &st;
 }
 
-void printstat(imgstat *stat){
+static void printstat(imgstat *stat){
     green("Statistics:\n");
     printf("MEAN=%g\nSTD=%g\nMIN=%g\nMAX=%g\n", stat->mean, stat->std, stat->min, stat->max);
 }
 
-bool addsomething(FITSimage *img, double *dimg, imgstat *stat){
+static bool addsomething(FITSimage *img, double *dimg, imgstat *stat){
     if(!G.add || !img || !stat) return FALSE;
     // parser:
     char *eptr;
@@ -136,7 +136,7 @@ bool addsomething(FITSimage *img, double *dimg, imgstat *stat){
     return TRUE;
 }
 
-bool multbysomething(FITSimage *img, double *dimg){
+static bool multbysomething(FITSimage *img, double *dimg){
     if(!img || !dimg) return FALSE;
     if(fabs(G.mult) < 2*DBL_EPSILON) return FALSE;
     DBG("multiply by %g", G.mult);
@@ -146,7 +146,7 @@ bool multbysomething(FITSimage *img, double *dimg){
     return TRUE;
 }
 
-bool process_fitsfile(char *inname, FITS *output){
+static bool process_fitsfile(char *inname, FITS *output){
     DBG("File %s", inname);
     bool mod = FALSE;
     FITS *f = FITS_read(inname);

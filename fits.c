@@ -18,8 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA 02110-1301, USA.
  */
-#include "local.h"
 #include "FITSmanip.h"
+#include "local.h"
 
 #include <errno.h>
 #include <libgen.h> // dirname, basename
@@ -315,11 +315,11 @@ KeyList *keylist_read(FITS *fits){
 void table_free(FITStable **tbl){
     if(!tbl || !*tbl) return;
     FITStable *intab = *tbl;
-    size_t i, N = intab->ncols;
+    int i, N = intab->ncols;
     for(i = 0; i < N; ++i){
         table_column *col = &(intab->columns[i]);
         if(col->coltype == TSTRING && col->width){
-            size_t r, R = col->repeat;
+            long r, R = col->repeat;
             void **cont = (void**) col->contents;
             for(r = 0; r < R; ++r) free(*(cont++));
         }
@@ -335,16 +335,16 @@ void table_free(FITStable **tbl){
  * @return pointer to copy of table
  */
 FITStable *table_copy(FITStable *intab){
-    if(!intab || intab->ncols == 0 || intab->nrows == 0) return NULL;
+    if(!intab || intab->ncols <= 0 || intab->nrows <= 0) return NULL;
     FITStable *tbl = MALLOC(FITStable, 1);
     memcpy(tbl, intab, sizeof(FITStable));
-    size_t ncols = intab->ncols, col;
+    int ncols = intab->ncols, col;
     tbl->columns = MALLOC(table_column, ncols);
     memcpy(tbl->columns, intab->columns, sizeof(table_column)*ncols);
     table_column *ocurcol = tbl->columns, *icurcol = intab->columns;
     for(col = 0; col < ncols; ++col, ++ocurcol, ++icurcol){
         if(ocurcol->coltype == TSTRING && ocurcol->width){ // string array - copy all
-            size_t r, R = ocurcol->repeat;
+            long r, R = ocurcol->repeat;
             char **oarr = (char**)ocurcol->contents, **iarr = (char**)icurcol->contents;
             for(r = 0; r < R; ++r, ++oarr, ++iarr){
                 *oarr = strdup(*iarr);
@@ -361,6 +361,7 @@ FITStable *table_copy(FITStable *intab){
  * @return
  */
 FITStable *table_read(FITS *fits){
+    FNAME();
     int ncols, i, fst = 0;
     long nrows;
     char extname[FLEN_VALUE];
@@ -374,7 +375,6 @@ FITStable *table_read(FITS *fits){
     DBG("Table named %s with %ld rows and %d columns", extname, nrows, ncols);
     FITStable *tbl = table_new(extname);
     if(!tbl) return NULL;
-    fits->curHDU->contents.table = tbl;
     for(i = 1; i <= ncols; ++i){
         int typecode;
         long repeat, width;
@@ -390,9 +390,8 @@ FITStable *table_read(FITS *fits){
         if(!array) ERRX("malloc");
         int anynul;
         int64_t nullval = 0;
-        int j;
-        for(j = 0; j < repeat; ++j){
-            fits_read_col(fp, typecode, i, j=1, 1, 1, (void*)nullval, array, &anynul, &fst);
+        for(int j = 0; j < repeat; ++j){
+            fits_read_col(fp, typecode, i, 1, 1, 1, (void*)nullval, array, &anynul, &fst);
             if(fst){
                 FITS_reporterr(&fst);
                 WARNX(_("Can't read column %d row %d!"), i, j);
@@ -427,7 +426,6 @@ FITStable *table_read(FITS *fits){
 FITStable *table_new(char *tabname){
     FITStable *tab = MALLOC(FITStable, 1);
     snprintf(tab->tabname, FLEN_CARD, "%s", tabname);
-    DBG("add new table: %s", tabname);
     return tab;
 }
 
@@ -444,11 +442,12 @@ FITStable *table_addcolumn(FITStable *tbl, table_column *column){
     FNAME();
     if(!tbl || !column || !column->contents) return NULL;
     long nrows = column->repeat;
-    int width = column->width;
+    long width = column->width;
     if(tbl->nrows < nrows) tbl->nrows = nrows;
-    size_t datalen = nrows * width, cols = ++tbl->ncols;
+    size_t datalen = nrows * width;
+    int cols = ++tbl->ncols;
     char *curformat = column->format;
-    DBG("add column; width: %d, nrows: %ld, name: %s", width, nrows, column->colname);
+    DBG("add column; width: %ld, nrows: %ld, name: %s", width, nrows, column->colname);
     /*void convchar(){ // count maximum length of strings in array
         char **charr = (char**)column->contents, *dptr = charr;
         size_t n, N = column->repeat;
@@ -458,7 +457,7 @@ FITStable *table_addcolumn(FITStable *tbl, table_column *column){
             else{ ++len; }
         }
     }*/
-    #define CHKLEN(type) do{if(width != sizeof(type)) datalen = sizeof(type) * nrows;}while(0)
+    #define CHKLEN(type) do{if(width != sizeof(type)) datalen = sizeof(type) * (size_t)nrows;}while(0)
     switch(column->coltype){
         case TBIT:
             snprintf(curformat, FLEN_FORMAT, "%ldX", nrows);
@@ -475,9 +474,9 @@ FITStable *table_addcolumn(FITStable *tbl, table_column *column){
         case TSTRING:
             if(width == 0){
                 snprintf(curformat, FLEN_FORMAT, "%ldA", nrows);
-                datalen = nrows;
+                datalen = (size_t)nrows + 1;
             }else
-                snprintf(curformat, FLEN_FORMAT, "%ldA%d", nrows, width);
+                snprintf(curformat, FLEN_FORMAT, "%ldA%ld", nrows, width);
         break;
         case TSHORT:
             snprintf(curformat, FLEN_FORMAT, "%ldI", nrows);
@@ -501,11 +500,11 @@ FITStable *table_addcolumn(FITStable *tbl, table_column *column){
         break;
         case TCOMPLEX:
             snprintf(curformat, FLEN_FORMAT, "%ldM", nrows);
-            if(width != sizeof(float)*2) datalen = sizeof(float) * nrows * 2;
+            if(width != sizeof(float)*2) datalen = sizeof(float) * (size_t)nrows * 2;
         break;
         case TDBLCOMPLEX:
             snprintf(curformat, FLEN_FORMAT, "%ldM", nrows);
-            if(width != sizeof(double)*2) datalen = sizeof(double) * nrows * 2;
+            if(width != sizeof(double)*2) datalen = sizeof(double) * (size_t)nrows * 2;
         break;
         case TINT:
             snprintf(curformat, FLEN_FORMAT, "%ldJ", nrows);
@@ -528,8 +527,8 @@ FITStable *table_addcolumn(FITStable *tbl, table_column *column){
             return NULL;
     }
     #undef CHKLEN
-    DBG("new size: %ld, old: %ld", sizeof(table_column)*cols, sizeof(table_column)*(cols-1));
-    if(!(tbl->columns = realloc(tbl->columns, sizeof(table_column)*cols))) ERRX("malloc");
+    DBG("new size: %ld, old: %zd", sizeof(table_column)*cols, sizeof(table_column)*(cols-1));
+    if(!(tbl->columns = realloc(tbl->columns, sizeof(table_column)*(size_t)cols))) ERRX("malloc");
     table_column *newcol = &(tbl->columns[cols-1]);
     memcpy(newcol, column, sizeof(table_column));
     newcol->contents = calloc(datalen, 1);
@@ -589,14 +588,14 @@ void table_print(FITStable *tbl){
                     printf("%zd\t", ((int64_t*)col->contents)[r]);
                 break;
                 case TFLOAT:
-                    printf("%g\t", ((float*)col->contents)[r]);
+                    printf("%g\t", (double)((float*)col->contents)[r]);
                 break;
                 case TDOUBLE:
                     printf("%g\t", ((double*)col->contents)[r]);
                 break;
                 case TCOMPLEX:
                     fpair = (float*)col->contents + 2*r;
-                    printf("%g %s %g*i\t", fpair[0], fpair[1] > 0 ? "+" : "-", fpair[1]);
+                    printf("%g %s %g*i\t", (double)fpair[0], fpair[1] > 0 ? "+" : "-", (double)fpair[1]);
                 break;
                 case TDBLCOMPLEX:
                     dpair = (double*)col->contents + 2*r;
@@ -622,9 +621,9 @@ void table_print(FITStable *tbl){
  * @param fits - pointer to given file structure
  */
 void table_print_all(FITS *fits){
-    size_t i, N = fits->NHDUs+1;
-    if(N == 0) return;
-    for(i = 1; i < N; ++i){
+    if(fits->NHDUs < 1) return;
+    int N = fits->NHDUs+1;
+    for(int i = 1; i < N; ++i){
         if(fits->HDUs[i].hdutype == BINARY_TBL || fits->HDUs[i].hdutype == ASCII_TBL)
             table_print(fits->HDUs[i].contents.table);
     }
@@ -642,6 +641,7 @@ bool table_write(FITS *file){
     if(hdutype != BINARY_TBL || hdutype != ASCII_TBL)
         return FALSE;
     FITStable *tbl = file->curHDU->contents.table;
+    if(tbl->ncols < 1 || tbl->nrows < 1) return FALSE;
     size_t c, cols = tbl->ncols;
     char **columns = MALLOC(char*, cols);
     char **formats = MALLOC(char*, cols);
@@ -686,6 +686,7 @@ bool table_write(FITS *file){
  * @return pointer to new HDU or NULL in case of error
  */
 FITSHDU *FITS_addHDU(FITS *fits){
+    if(fits->NHDUs < 0) fits->NHDUs = 0;
     int hdunum = fits->NHDUs + 1;
     // add 1 to `hdunum` because HDU numbering starts @1
     FITSHDU *newhdu = realloc(fits->HDUs, sizeof(FITSHDU)*(1+hdunum));
@@ -791,7 +792,7 @@ FITS *FITS_read(char *filename){
             break;
             case ASCII_TBL:
                 DBG("ASCII table");
-                //table_read(img, fp);
+                curHDU->contents.table = table_read(fits);
             break;
             default:
                 WARNX(_("Unknown HDU type"));
@@ -972,7 +973,7 @@ int image_datatype_size(int bitpix, int *dtype){
  * @return allocated memory
  */
 void *image_data_malloc(long totpix, int pxbytes){
-    if(!pxbytes || !totpix) return NULL;
+    if(pxbytes <= 0 || totpix <= 0) return NULL;
     void *data = calloc(totpix, pxbytes);
     DBG("Allocate %zd members of size %d", totpix, pxbytes);
     if(!data) ERR("calloc()");
@@ -981,16 +982,16 @@ void *image_data_malloc(long totpix, int pxbytes){
 
 /**
  * @brief image_new - create an empty image without headers, assign BITPIX to "bitpix"
- * @param naxis  - number of dimensions
- * @param naxes  - sizes by each dimension
- * @param bitpix - BITPIX for given image
+ * @param naxis     - number of dimensions
+ * @param naxes (i) - sizes by each dimension
+ * @param bitpix    - BITPIX for given image
  * @return allocated structure or NULL
  */
 FITSimage *image_new(int naxis, long *naxes, int bitpix){
     FITSimage *out = MALLOC(FITSimage, 1);
     int dtype, pxsz = image_datatype_size(bitpix, &dtype);
     long totpix = 0;
-    if(naxis){ // not empty image
+    if(naxis > 0){ // not empty image
         totpix = 1;
         for(int i = 0; i < naxis; ++i) if(naxes[i]) totpix *= naxes[i];
         out->data = image_data_malloc(totpix, pxsz);
@@ -998,10 +999,10 @@ FITSimage *image_new(int naxis, long *naxes, int bitpix){
             FREE(out);
             return NULL;
         }
+        out->naxes = MALLOC(long, naxis);
+        memcpy(out->naxes, naxes, sizeof(long)*naxis);
     }
     out->totpix = totpix;
-    out->naxes = MALLOC(long, naxis);
-    memcpy(out->naxes, naxes, sizeof(long)*naxis);
     out->naxis = naxis;
     out->pxsz = pxsz;
     out->bitpix = bitpix;
@@ -1011,42 +1012,42 @@ FITSimage *image_new(int naxis, long *naxes, int bitpix){
 
 // function for qsort
 static int cmpdbl(const void *d1, const void *d2){
-    register double D1 = *(double*)d1, D2 = *(double*)d2;
+    register double D1 = *(const double*)d1, D2 = *(const double*)d2;
     if(fabs(D1 - D2) < DBL_EPSILON) return 0;
     if(D1 > D2) return 1;
     else return -1;
 }
 
 // functions to convert double to different datatypes
-static void convu8(FITSimage *img, double *dimg){
+static void convu8(FITSimage *img, const double *dimg){
     uint8_t *dptr = (uint8_t*) img->data;
     OMP_FOR()
     for(long i = 0; i < img->totpix; ++i){
         dptr[i] = (uint8_t) dimg[i];
     }
 }
-static void convu16(FITSimage *img, double *dimg){
+static void convu16(FITSimage *img, const double *dimg){
     uint16_t *dptr = (uint16_t*) img->data;
     OMP_FOR()
     for(long i = 0; i < img->totpix; ++i){
         dptr[i] = (uint16_t) dimg[i];
     }
 }
-static void convu32(FITSimage *img, double *dimg){
+static void convu32(FITSimage *img, const double *dimg){
     uint32_t *dptr = (uint32_t*) img->data;
     OMP_FOR()
     for(long i = 0; i < img->totpix; ++i){
         dptr[i] = (uint32_t) dimg[i];
     }
 }
-static void convu64(FITSimage *img, double *dimg){
+static void convu64(FITSimage *img, const double *dimg){
     uint64_t *dptr = (uint64_t*) img->data;
     OMP_FOR()
     for(long i = 0; i < img->totpix; ++i){
         dptr[i] = (uint64_t) dimg[i];
     }
 }
-static void convf(FITSimage *img, double *dimg){
+static void convf(FITSimage *img, const double *dimg){
     float *dptr = (float*) img->data;
     OMP_FOR()
     for(long i = 0; i < img->totpix; ++i){
@@ -1078,7 +1079,7 @@ FITSimage *image_rebuild(FITSimage *img, double *dimg){
     FREE(sr);
     DBG("min: %g, max: %g, mindiff: %g", min, max, mindiff);
     int bitpix = -64; // double by default
-    void (*convdata)(FITSimage*, double*) = NULL;
+    void (*convdata)(FITSimage*, const double*) = NULL;
     if(isint)do{ // check which integer type will suits better
         DBG("INTEGER?");
         if(min < 0){ isint = FALSE; break;} // TODO: correct with BZERO

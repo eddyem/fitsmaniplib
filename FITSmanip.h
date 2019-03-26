@@ -15,14 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#pragma once
+#ifndef FITSMANIP_H__
+#define FITSMANIP_H__
 #include <fitsio.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #define Stringify(x) #x
-#define OMP_FOR(x) _Pragma(Stringify(omp parallel for x))
+#define OMP_FOR(...) _Pragma(Stringify(omp parallel for __VA_ARGS__))
 #ifndef MAX
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 #endif
@@ -46,29 +48,6 @@ cfitsio.h BITPIX code values for FITS image types:
 #define LONGLONG_IMG 64
 #define FLOAT_IMG   -32
 #define DOUBLE_IMG  -64
-*/
-/*
-// FilterType (not only convolution!)
-typedef enum{
-    FILTER_NONE = 0     // simple start
-    ,MEDIAN             // median filter
-    ,ADPT_MEDIAN        // simple adaptive median
-    ,LAPGAUSS           // laplasian of gaussian
-    ,GAUSS              // gaussian
-    ,SOBELH             // Sobel horizontal
-    ,SOBELV             // -//- vertical
-    ,SIMPLEGRAD         // simple gradient (by Sobel)
-    ,PREWITTH           // Prewitt (horizontal) - simple derivative
-    ,PREWITTV           // -//- (vertical)
-    ,SCHARRH            // Scharr (modified Sobel)
-    ,SCHARRV
-    ,STEP               // "posterisation"
-} FType;
-
-typedef struct{
-    double *data;
-    size_t size;
-}Itmarray;
 */
 
 /**
@@ -103,12 +82,7 @@ typedef struct{
 	char tabname[FLEN_CARD];	// table name
 	table_column *columns;      // array of structures 'table_column'
 } FITStable;
-/*
-typedef struct{
-	size_t amount;		// amount of tables in file
-	FITStable **tables;	// array of pointers to tables
-} FITStables;
-*/
+
 /**
   FITS image
   */
@@ -143,27 +117,6 @@ typedef struct{
     FITSHDU *HDUs;      // HDUs array itself
     FITSHDU *curHDU;    // pointer to current HDU
 } FITS;
-
-/*
-typedef struct _Filter{
-    char *name;         // filter name
-    FType FilterType;   // filter type
-    int w;              // filter width
-    int h;              // height
-    double sx;          // x half-width
-    double sy;          // y half-width (sx, sy - for Gaussian-type filters)
-    FITS* (*imfunc)(FITS *in, struct _Filter *f, Itmarray *i);    // image function for given conversion type
-} Filter;
-
-// mathematical operations when there's no '-i' parameter (for >1 FITS-files)
-typedef enum{
-    MATH_NONE = 0
-    ,MATH_SUM           // make sum of all files
-    ,MATH_MEDIAN        // calculate median by all files
-    ,MATH_MEAN          // calculate mean for all files
-    ,MATH_DIFF          // difference of first and rest files
-} MathOper;
-*/
 
 void keylist_free(KeyList **list);
 KeyList *keylist_add_record(KeyList **list, char *rec, int check);
@@ -219,3 +172,50 @@ void initomp();
 // pointer to image conversion function
 typedef FITS* (*imfuncptr)(FITS *in, Filter *f, Itmarray *i);
 */
+
+/*
+// FilterType (not only convolution!)
+typedef enum{
+    FILTER_NONE = 0     // simple start
+    ,MEDIAN             // median filter
+    ,ADPT_MEDIAN        // simple adaptive median
+    ,LAPGAUSS           // laplasian of gaussian
+    ,GAUSS              // gaussian
+    ,SOBELH             // Sobel horizontal
+    ,SOBELV             // -//- vertical
+    ,SIMPLEGRAD         // simple gradient (by Sobel)
+    ,PREWITTH           // Prewitt (horizontal) - simple derivative
+    ,PREWITTV           // -//- (vertical)
+    ,SCHARRH            // Scharr (modified Sobel)
+    ,SCHARRV
+    ,STEP               // "posterisation"
+} FType;
+
+typedef struct{
+    double *data;
+    size_t size;
+}Itmarray;
+*/
+
+/*
+typedef struct _Filter{
+    char *name;         // filter name
+    FType FilterType;   // filter type
+    int w;              // filter width
+    int h;              // height
+    double sx;          // x half-width
+    double sy;          // y half-width (sx, sy - for Gaussian-type filters)
+    FITS* (*imfunc)(FITS *in, struct _Filter *f, Itmarray *i);    // image function for given conversion type
+} Filter;
+
+// mathematical operations when there's no '-i' parameter (for >1 FITS-files)
+typedef enum{
+    MATH_NONE = 0
+    ,MATH_SUM           // make sum of all files
+    ,MATH_MEDIAN        // calculate median by all files
+    ,MATH_MEAN          // calculate mean for all files
+    ,MATH_DIFF          // difference of first and rest files
+} MathOper;
+*/
+
+#endif // FITSMANIP_H__
