@@ -18,7 +18,15 @@
 #pragma once
 
 #include <float.h> // xx_EPSILON etc.
+#include <errno.h>
+#include <libgen.h> // dirname, basename
+#include <limits.h>
 #include <linux/limits.h> // PATH_MAX
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
+#include <usefull_macros.h>
 
 #if defined GETTEXT
 #include <libintl.h>

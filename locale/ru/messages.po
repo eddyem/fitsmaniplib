@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-03-26 20:09+0300\n"
+"POT-Creation-Date: 2019-03-29 21:12+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,74 +17,65 @@ msgstr ""
 "Content-Type: text/plain; charset=koi8-r\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#. / "Не могу скопировать данные"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:90
-msgid "Can't copy data"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:282
-msgid "No keywords in given HDU"
-msgstr ""
-
-#. / "Не могу добавить запись в список"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:298
-msgid "Can't add record to list"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:351
-msgid "strdup() failed!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:385
-#, c-format
-msgid "Can't read column %d!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:399
-#, c-format
-msgid "Can't read column %d row %d!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:408
-msgid "Can't read table data type"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:412
-msgid "Can't read table data unit"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:528
-msgid "Unsupported column data type!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:664
-#, c-format
-msgid "Can't write table %s!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:674
-#, c-format
-msgid "Can't write column %s!"
-msgstr ""
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:773
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:119
 msgid "Can't read HDU"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:800
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:147
 msgid "Unknown HDU type"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:918
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:263
 #, c-format
 msgid "Can't get real path for %s, use cfitsio to rewrite"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1214
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:316
 #, c-format
 msgid "Found %d pixels with undefined value"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1255
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:357
 msgid "Undefined image type, cant convert to double"
+msgstr ""
+
+#. / "Не могу скопировать данные"
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:83
+msgid "Can't copy data"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:132
+msgid "Can't get value & comment"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:361
+msgid "No keywords in given HDU"
+msgstr ""
+
+#. / "Не могу добавить запись в список"
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:377
+msgid "Can't add record to list"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:121
+msgid "strdup() failed!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:142
+msgid "Can't read row number!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:159
+#, c-format
+msgid "Can't read column %d!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:450
+#, c-format
+msgid "Can't write table %s!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:460
+#, c-format
+msgid "Can't write column %s!"
 msgstr ""

@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2019-03-26 20:09+0300\n"
+        "POT-Creation-Date: 2019-03-29 20:32+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,80 +17,68 @@ msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Content-Transfer-Encoding: 8bit\n"
 
 #. / "Не могу добавить запись в список"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:298
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:377
 msgid   "Can't add record to list"
 msgstr  "Не могу добавить запись в список"
 
 #. / "Не могу скопировать данные"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:90
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:83
 msgid   "Can't copy data"
 msgstr  "Не могу скопировать данные"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:918
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:263
 #, c-format
 msgid   "Can't get real path for %s, use cfitsio to rewrite"
 msgstr  "Не могу определить путь (realpath) к %s, использую cfitsio для "
         "перезаписи"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:773
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:132
+#, fuzzy
+msgid   "Can't get value & comment"
+msgstr  "Не могу прочесть единицы измерения данных таблицы"
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:119
 msgid   "Can't read HDU"
 msgstr  "Не могу прочесть HDU"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:399
-#, c-format
-msgid   "Can't read column %d row %d!"
-msgstr  "Не могу прочесть столбец %d строку %d"
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:385
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:159
 #, c-format
 msgid   "Can't read column %d!"
 msgstr  "Не могу прочесть столбец %d!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:408
-msgid   "Can't read table data type"
-msgstr  "Не могу прочесть тип данных таблицы"
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:142
+#, fuzzy
+msgid   "Can't read row number!"
+msgstr  "Не могу прочесть столбец %d!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:412
-msgid   "Can't read table data unit"
-msgstr  "Не могу прочесть единицы измерения данных таблицы"
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:674
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:460
 #, c-format
 msgid   "Can't write column %s!"
 msgstr  "Не могу записать столбец %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:664
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:450
 #, c-format
 msgid   "Can't write table %s!"
 msgstr  "Не могу записать таблицу %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1214
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:316
 #, c-format
 msgid   "Found %d pixels with undefined value"
 msgstr  "Найдено %d пикселей с неопределенными значениями"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:282
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:361
 msgid   "No keywords in given HDU"
 msgstr  "В данном HDU ключи отсутствуют"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:1255
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:357
 msgid   "Undefined image type, cant convert to double"
-msgstr  ""
+msgstr  "Неопределенный тип файла, не могу преобразовать в double"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:800
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:147
 msgid   "Unknown HDU type"
 msgstr  "Неизвестный тип HDU"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:528
-msgid   "Unsupported column data type!"
-msgstr  "Неподдерживаемый тип данных столбца!"
-
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fits.c:351
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:121
 msgid   "strdup() failed!"
 msgstr  "Не удалось сделать strdup()!"
 
-#~ msgid        "Bad w, h or pxsz"
-#~ msgstr       "Неверные значения w, h или pxsz"
-
-#~ msgid        "Images with > 2 dimensions are not supported"
-#~ msgstr       "Изображения с более чем двумя измерениями не поддерживаются"

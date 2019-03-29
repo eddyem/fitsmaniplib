@@ -23,6 +23,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/**************************************************************************************
+ *                                common macros                                       *
+ **************************************************************************************/
+
+
 #define Stringify(x) #x
 #define OMP_FOR(...) _Pragma(Stringify(omp parallel for __VA_ARGS__))
 #ifndef MAX
@@ -33,12 +38,12 @@
 #endif
 
 /**************************************************************************************
- *                                      fits.c                                        *
+ *                                common typedef                                      *
  **************************************************************************************/
 
-//typedef double Item;
-
+#ifndef FLEN_FORMAT
 #define FLEN_FORMAT	(12)
+#endif
 
 /*
 cfitsio.h BITPIX code values for FITS image types:
@@ -67,9 +72,10 @@ typedef struct{
 	void *contents;				// contents of table
 	int coltype;				// type of columns
 	long width;					// data width
-	long repeat;				// amount of rows -> 'contents' size = width*repeat
+	long repeat;				// maybe != 1 for binary tables
+    long nrows;                 // amount of rows -> 'contents' size = width*repeat
 	char colname[FLEN_KEYWORD];	// column name (arg ttype of fits_create_tbl)
-	char format[FLEN_FORMAT];	// format codes (tform)
+	char format[FLEN_FORMAT];	// format codes (tform) for tables
 	char unit[FLEN_CARD];		// units (tunit)
 } table_column;
 
@@ -118,9 +124,14 @@ typedef struct{
     FITSHDU *curHDU;    // pointer to current HDU
 } FITS;
 
+/**************************************************************************************
+ *                                 fitskeywords.c                                     *
+ **************************************************************************************/
 void keylist_free(KeyList **list);
 KeyList *keylist_add_record(KeyList **list, char *rec, int check);
 KeyList *keylist_find_key(KeyList *list, char *key);
+char *record_get_keyval(char *r, char **comm);
+char *keylist_find_keyval(KeyList *l, char *key, char **comm);
 void keylist_remove_key(KeyList **list, char *key);
 KeyList *keylist_modify_key(KeyList *list, char *key, char *newval);
 void keylist_remove_records(KeyList **list, char *sample);
@@ -129,6 +140,10 @@ KeyList *keylist_get_end(KeyList *list);
 void keylist_print(KeyList *list);
 KeyList *keylist_read(FITS *fits);
 
+/**************************************************************************************
+ *                                 fitstables.c                                       *
+ **************************************************************************************/
+int datatype_size(int datatype);
 void table_free(FITStable **tbl);
 FITStable *table_new(char *tabname);
 FITStable *table_read(FITS *img);
@@ -137,6 +152,9 @@ bool table_write(FITS *fits);
 void table_print(FITStable *tbl);
 void table_print_all(FITS *fits);
 
+/**************************************************************************************
+ *                                  fitsimages.c                                      *
+ **************************************************************************************/
 void image_free(FITSimage **ima);
 FITSimage *image_read(FITS *fits);
 FITSimage *image_rebuild(FITSimage *img, double *dimg);
@@ -148,17 +166,15 @@ FITSimage *image_copy(FITSimage *in);
 double *image2double(FITSimage *img);
 //FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
 
+/**************************************************************************************
+ *                                  fitsfiles.c                                       *
+ **************************************************************************************/
 FITSHDU *FITS_addHDU(FITS *fits);
 void FITS_free(FITS **fits);
 FITS *FITS_read(char *filename);
 FITS *FITS_open(char *filename);
 bool FITS_write(char *filename, FITS *fits);
 bool FITS_rewrite(FITS *fits);
-
-/**************************************************************************************
- *                                    fileops.c                                       *
- **************************************************************************************/
-
 char* make_filename(char *buff, size_t buflen, char *prefix, char *suffix);
 bool file_is_absent(char *name);
 
