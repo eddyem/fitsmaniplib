@@ -4,6 +4,22 @@ Examples
 ## common.h
 Common files for all
 
+# gd.c
+
+Usage: gd [args]
+
+        Where args are:
+
+  -T, --transform=arg   type of intensity transformation (log, sqr, exp, pow)
+  -h, --help            show this help
+  -i, --inname=arg      name of input file
+  -n, --hdunumber=arg   open image from given HDU number
+  -o, --outpname=arg    output file name (jpeg)
+  -p, --palette=arg     convert as given palette
+  -r, --rewrite         rewrite output file
+  -t, --textline=arg    add text line to output image (at bottom)
+
+
 ## imstat.c
 
 Usage: imstat [args] input files
@@ -18,7 +34,6 @@ Get statistics and modify images from first image HDU of each input file
 
 
 ## keylist.c
-
 
 Usage: keylist [args] infile.fits
 

@@ -57,13 +57,6 @@ static myoption cmdlnopts[] = {
     end_option
 };
 
-typedef struct{
-    double mean;
-    double std;
-    double min;
-    double max;
-} imgstat;
-
 /**
  * Parse command line options and return dynamically allocated structure
  *      to global parameters
@@ -87,25 +80,6 @@ static glob_pars *parse_args(int argc, char **argv){
             G.infiles[i] = strdup(argv[i]);
     }
     return &G;
-}
-
-static imgstat *get_imgstat(double *dimg, long totpix){
-    static imgstat st;
-    if(!dimg || !totpix) return &st; // return some trash if wrong data
-    st.min = dimg[0];
-    st.max = dimg[0];
-    double sum = dimg[0], sum2 = dimg[0];
-    for(long i = 1; i < totpix; ++i){
-        double val = dimg[i];
-        if(st.min > val) st.min = val;
-        if(st.max < val) st.max = val;
-        sum += val;
-        sum2 += val*val;
-    }
-    DBG("tot:%ld, sum=%g, sum2=%g, min=%g, max=%g", totpix, sum, sum2, st.min, st.max);
-    st.mean = sum / totpix;
-    st.std = sqrt(sum2/totpix - st.mean*st.mean);
-    return &st;
 }
 
 static void printstat(imgstat *stat){
@@ -176,10 +150,11 @@ static bool process_fitsfile(char *inname, FITS *output){
     // OK, we have an image and can do something with it
     green("\tGet image from this HDU.\n");
     FITSimage *img = f->curHDU->contents.image;
-    double *dImg = image2double(img);
+    doubleimage *dblim = image2double(img);
     // calculate image statistics
-    imgstat *stat = get_imgstat(dImg, img->totpix);
+    imgstat *stat = get_imgstat(dblim, NULL);
     printstat(stat);
+    double *dImg = dblim->data;
     DBG("i[1000] = %d, o[1000]=%g", ((uint16_t*)img->data)[1000], dImg[1000]);
     if(G.add){
         if(addsomething(img, dImg, stat)) mod = TRUE;

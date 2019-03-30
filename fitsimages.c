@@ -170,6 +170,7 @@ FITSimage *image_rebuild(FITSimage *img, double *dimg){
     // first we should calculate statistics of new image
     double *sr = MALLOC(double, img->totpix);
     memcpy(sr, dimg, sizeof(double)*img->totpix);
+    initomp();
     qsort(sr, img->totpix, sizeof(double), cmpdbl);
     double mindiff = DBL_MAX;
     bool isint = TRUE;
@@ -318,21 +319,31 @@ FITSimage *image_read(FITS *fits){
     return img;
 }
 
+void dblima_free(doubleimage **im){
+    FREE((*im)->data);
+    FREE(*im);
+}
+
 /**
  * @brief image2double convert image values to double
  * @param img - input image
- * @return array of double with size imt->totpix
+ * @return array of double with size img->totpix
  */
-double *image2double(FITSimage *img){
+doubleimage *image2double(FITSimage *img){
     size_t tot = img->totpix;
     double *ret = MALLOC(double, tot);
+    doubleimage *dblim = MALLOC(doubleimage, 1);
+    dblim->data = ret;
+    dblim->width = img->naxes[0];
+    dblim->height = img->naxes[1];
+    dblim->totpix = tot;
+    DBG("image: %ldx%ld=%ld", dblim->width, dblim->height, tot);
     double (*fconv)(uint8_t *x);
     double ubyteconv(uint8_t *data){return (double)*data;}
     double ushortconv(uint8_t *data){return (double)*((uint16_t*)data);}
     double ulongconv(uint8_t *data){return (double)*((uint32_t*)data);}
     double ulonglongconv(uint8_t *data){return (double)*((uint64_t*)data);}
     double floatconv(uint8_t *data){return (double)*((float*)data);}
-    initomp();
     switch(img->dtype){
         case TBYTE:
             fconv = ubyteconv;
@@ -351,17 +362,77 @@ double *image2double(FITSimage *img){
         break;
         case TDOUBLE:
             memcpy(ret, img->data, sizeof(double)*img->totpix);
-            return ret;
+            return dblim;
         break;
         default:
             WARNX(_("Undefined image type, cant convert to double"));
             FREE(ret);
+            FREE(dblim);
             return NULL;
     }
     uint8_t *din = img->data;
+    initomp();
     OMP_FOR()
     for(size_t i = 0; i < tot; ++i){
         ret[i] = fconv(&din[i*img->pxsz]);
     }
-    return ret;
+    return dblim;
+}
+
+/**
+ * @brief get_imgstat - calculate simplest statistics: mean/std/min/max
+ * @param dimg   - double array
+ * @param totpix - total amount of pixels
+ * @param est    - structure for output data (for thread-safe operations)
+ * @return structure with statistics data
+ */
+imgstat *get_imgstat(const doubleimage *im, imgstat *est){
+    static imgstat st;
+    if(!im || !im->totpix) return &st; // return some trash if wrong data
+    double *dimg = im->data;
+    size_t totpix = im->totpix;
+    st.min = dimg[0];
+    st.max = dimg[0];
+    double sum = dimg[0], sum2 = dimg[0];
+    for(size_t i = 1; i < totpix; ++i){
+        double val = dimg[i];
+        if(st.min > val) st.min = val;
+        if(st.max < val) st.max = val;
+        sum += val;
+        sum2 += val*val;
+    }
+    DBG("tot:%ld, sum=%g, sum2=%g, min=%g, max=%g", totpix, sum, sum2, st.min, st.max);
+    st.mean = sum / totpix;
+    st.std = sqrt(sum2/totpix - st.mean*st.mean);
+    if(est){
+        memcpy(est, &st, sizeof(imgstat));
+        return est;
+    }
+    return &st;
+}
+
+/**
+ * @brief normalize_dbl - convert double image array to normalized (0..1)
+ * @param dimg (io) - array with image pixels
+ * @param st   (i)  - image statistics (maybe NULL, then calculates here)
+ * @return pointer to dimg
+ */
+doubleimage *normalize_dbl(doubleimage *im, imgstat *st){
+    if(!im || !im->data || !st) return NULL;
+    double *dimg = im->data;
+    size_t totpix = im->totpix;
+    if(totpix < 1) return NULL;
+    imgstat imst;
+    if(!st) st = get_imgstat(im, &imst);
+    double rng = st->max - st->min;
+    if(rng < 2*DBL_EPSILON){
+        WARNX(_("Data range is too small"));
+        return NULL;
+    }
+    initomp();
+    OMP_FOR()
+    for(size_t i = 0; i < totpix; ++i){
+        dimg[i] = (dimg[i] - st->min) / rng;
+    }
+    return im;
 }

@@ -102,6 +102,40 @@ typedef struct{
 	void *data; 	    // picture data
 } FITSimage;
 
+// 2-dimensional image data as double value
+typedef struct{
+    size_t height;
+    size_t width;
+    size_t totpix;
+    double *data;
+} doubleimage;
+
+// simplest statistics
+typedef struct{
+    double mean;
+    double std;
+    double min;
+    double max;
+} imgstat;
+
+// type of intensity transformation
+typedef enum{
+    TRANSF_WRONG = 0,
+    TRANSF_LINEAR,
+    TRANSF_LOG,
+    TRANSF_EXP,
+    TRANSF_POW,
+    TRANSF_SQR,
+    TRANSF_HISTEQ
+} intens_transform;
+
+// different color maps
+typedef enum{
+    PALETTE_GRAY = 0,
+    PALETTE_BR,
+    PALETTE_COUNT
+} image_palette;
+
 typedef union{
     FITSimage *image;
     FITStable *table;
@@ -163,7 +197,10 @@ void *image_data_malloc(long totpix, int pxbytes);
 FITSimage *image_new(int naxis, long *naxes, int bitpix);
 FITSimage *image_mksimilar(FITSimage *in);
 FITSimage *image_copy(FITSimage *in);
-double *image2double(FITSimage *img);
+void dblima_free(doubleimage **im);
+doubleimage *image2double(FITSimage *img);
+imgstat *get_imgstat(const doubleimage *dimg, imgstat *est);
+doubleimage *normalize_dbl(doubleimage *dimg, imgstat *st);
 //FITSimage *image_build(size_t h, size_t w, int dtype, uint8_t *indata);
 
 /**************************************************************************************
@@ -176,13 +213,15 @@ FITS *FITS_open(char *filename);
 bool FITS_write(char *filename, FITS *fits);
 bool FITS_rewrite(FITS *fits);
 char* make_filename(char *buff, size_t buflen, char *prefix, char *suffix);
-bool file_is_absent(char *name);
+bool file_absent(char *name);
 
 /**************************************************************************************
  *                                   FITSmanip.c                                      *
  **************************************************************************************/
 void FITS_reporterr(int *errcode);
 void initomp();
+doubleimage *mktransform(doubleimage *im, imgstat *st, intens_transform transf);
+uint8_t *convert2palette(doubleimage *im, image_palette cmap);
 
 /*
 // pointer to image conversion function

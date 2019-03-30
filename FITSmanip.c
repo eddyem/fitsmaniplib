@@ -50,3 +50,128 @@ void FITS_reporterr(int *errcode){
         fprintf(stderr, COLOR_OLD);
     *errcode = 0;
 }
+
+/**
+ * @brief mktransform - make image intensity transformation
+ * @param dimg (io) - double image
+ * @param st   (i)  - image statistics
+ * @param transf    - type of transformation
+ * @return NULL if failed
+ *      Be carefull: image should be equalized before some types of transform
+ */
+doubleimage *mktransform(doubleimage *im, imgstat *st, intens_transform transf){
+    if(!im || !im->data || !st) return NULL;
+    double max = st->max, min = st->min;
+    if((max-min) < 2.*DBL_EPSILON){
+        WARNX(_("Data range is too small"));
+        return NULL;
+    }
+    double *dimg = im->data;
+    if(transf == TRANSF_LINEAR) return im; // identity
+if(transf == TRANSF_HISTEQ) return NULL; // histogram equalization; TODO: add this option too!
+    double (*transfn)(double in);
+    double logtrans(double in){ // logaryphmic
+        return log(1. + in);
+    }
+    double exptrans(double in){ // exponential
+        return exp(in);
+    }
+    double powtrans(double in){ // x^2
+        return in*in;
+    }
+    double sqrtrans(double in){ // square root
+        return sqrt(in);
+    }
+    switch(transf){
+        case TRANSF_EXP:
+            transfn = exptrans;
+        break;
+        case TRANSF_LOG:
+            transfn = logtrans;
+        break;
+        case TRANSF_POW:
+            transfn = powtrans;
+        break;
+        case TRANSF_SQR:
+            transfn = sqrtrans;
+        break;
+        default: return NULL;
+    }
+    size_t totpix = im->totpix;
+    OMP_FOR()
+    for(size_t i = 0; i < totpix; ++i){
+        double d = dimg[i] - min;
+        dimg[i] = transfn(d);
+    }
+    return im;
+}
+
+/**
+ * @brief palette_gray - simplest gray conversion
+ * @param gray  - nornmalized double value
+ * @param rgb - red, green and blue components
+ */
+static void palette_gray(double gray, uint8_t *rgb){
+    rgb[0] = rgb[1] = rgb[2] = (uint8_t)(255.*gray);
+}
+
+/**
+ * @brief palette_BR - palette from blue to red
+ * @param gray  - nornmalized double value
+ * @param rgb - red, green and blue components
+ */
+static void palette_BR(double gray, uint8_t *rgb){
+	int i = (int)(gray * 4.);
+	double x = gray - (double)i * .25;
+	uint8_t r = 0, g = 0, b = 0;
+	switch(i){
+		case 0:
+			g = (uint8_t)(255. * x);
+			b = 255;
+		break;
+		case 1:
+			g = 255;
+			b = (uint8_t)(255. * (1. - x));
+		break;
+		case 2:
+			r = (uint8_t)(255. * x);
+			g = 255;
+		break;
+		case 3:
+			r = 255;
+			g = (uint8_t)(255. * (1. - x));
+		break;
+		default:
+			r = 255;
+	}
+	rgb[0] = r;
+	rgb[1] = g;
+	rgb[2] = b;
+}
+
+typedef void (*palette)(double, uint8_t[3]); // pointer to palette function
+static palette palette_F[PALETTE_COUNT] = {
+    [PALETTE_GRAY] = palette_gray,
+    [PALETTE_BR] = palette_BR
+};
+
+/**
+ * @brief convert2palette - convert normalized double image into colour using some palette
+ * @param im (i) - image to convert
+ * @param cmap   - palette (colormap) used
+ * @return allocated here array with color image
+ */
+uint8_t *convert2palette(doubleimage *im, image_palette cmap){
+    if(!im || !im->data || cmap < 0 || cmap >= PALETTE_COUNT) return NULL;
+    palette impalette = palette_F[cmap];
+    size_t totpix = im->totpix;
+    if(totpix == 0) return NULL;
+    double *inarr = im->data;
+    uint8_t *colored = MALLOC(uint8_t, totpix * 3);
+    initomp();
+    OMP_FOR()
+    for(size_t i = 0; i < totpix; ++i){
+        impalette(inarr[i], &colored[i*3]);
+    }
+    return colored;
+}
