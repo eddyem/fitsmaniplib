@@ -21,7 +21,8 @@
 
 /*
  * Read FITS image, convert it to double and save as JPEG
- * with given pallette.
+ *   with given pallette. Also make simplest intensity (including histogram)
+ *   transformations.
  * WARNING! Supports only 2-dimensional images
  */
 
@@ -33,6 +34,7 @@ typedef struct{
     char *palette;      // palette to convert FITS image
     int   nhdu;         // HDU number to read image from
     int   rewrite;      // rewrite output file
+    int   nlvl;         // amount of histogram levels
 } glob_pars;
 
 /*
@@ -41,6 +43,7 @@ typedef struct{
 static int help;
 static glob_pars G = {
     .nhdu = 1,
+    .nlvl = 100
 };
 
 /*
@@ -53,10 +56,11 @@ static myoption cmdlnopts[] = {
     {"inname",  NEED_ARG,   NULL,   'i',    arg_string, APTR(&G.fitsname),  _("name of input file")},
     {"outpname",NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("output file name (jpeg)")},
     {"textline",NEED_ARG,   NULL,   't',    arg_string, APTR(&G.text),      _("add text line to output image (at bottom)")},
-    {"palette", NEED_ARG,   NULL,   'p',    arg_string, APTR(&G.palette),   _("convert as given palette")},
+    {"palette", NEED_ARG,   NULL,   'p',    arg_string, APTR(&G.palette),   _("convert as given palette (linear, br, hot)")},
     {"hdunumber",NEED_ARG,  NULL,   'n',    arg_int,    APTR(&G.nhdu),      _("open image from given HDU number")},
     {"transform",NEED_ARG,  NULL,   'T',    arg_string, APTR(&G.transform), _("type of intensity transformation (log, sqr, exp, pow)")},
     {"rewrite", NO_ARGS,    NULL,   'r',    arg_none,   APTR(&G.rewrite),   _("rewrite output file")},
+    {"histlvl", NEED_ARG,   NULL,   'l',    arg_int,    APTR(&G.nlvl),      _("amount of levels for histogram calculation")},
     end_option
 };
 
@@ -122,26 +126,6 @@ static bool write_jpeg(const char *fname, const uint8_t *data, const char *str, 
 }
 
 /**
- * @brief conv2rgb - convert grayscale normalized image to grayscale RGB
- * @param inarr (i) - input array
- * @param totpix    - its size
- * @return allocated here array with data
- *
-static uint8_t *conv2rgb(doubleimage *in){
-    if(!in) return NULL;
-    size_t totpix = in->totpix;
-    if(totpix == 0) return NULL;
-    double *inarr = in->data;
-    uint8_t *colored = MALLOC(uint8_t, totpix * 3);
-    OMP_FOR()
-    for(size_t i = 0; i < totpix; ++i){
-        uint8_t *pcl = &colored[i*3];
-        pcl[0] = pcl[1] = pcl[2] = (uint8_t)(inarr[i] * 255.);
-    }
-    return colored;
-}*/
-
-/**
  * @brief gettransf - convert string with transformation type into intens_transform
  * @param transf - type of transformation
  * @return TRANSF_WRONG if arg is wrong or appropriate transformation type
@@ -183,31 +167,65 @@ static intens_transform gettransf(const char *transf){
 /**
  * @brief palette_transform - transform string with colormap name into its number
  * @param p - colormap name
- * @return PALETTE_COUNT if wrong or appropriate palette
+ * @return PALETTE_WRONG if wrong or appropriate palette
  */
 static image_palette palette_transform(char *p){
-    if(!p) return PALETTE_COUNT;
+    if(!p) return PALETTE_WRONG;
     switch(p[0]){
         case 'B':
         case 'b':
             return PALETTE_BR;
         break;
+        case 'c':
+        case 'C':
+            return PALETTE_COLD;
+        break;
+        case 'g':
+        case 'G':
+            return PALETTE_GRAY;
+        break;
+        case 'h':
+        case 'H':
+            return PALETTE_HOT;
+        break;
+        case 'j':
+        case 'J':
+            return PALETTE_JET;
+        break;
         default:
-            return PALETTE_COUNT;
+            return PALETTE_WRONG;
     }
 }
 
+void print_histo(histogram *H){
+    if(!H) return;
+    size_t *histo = H->data;
+    double *lvls = H->levels;
+    green("Histogram:\n");
+    for(size_t i = 0; i < H->size; ++i){
+        if(histo[i] == 0) continue;
+        printf("%5zd [%3zd%%]: %zd (%g..%g)\n", i, (100*histo[i])/H->totpix, histo[i], lvls[i], lvls[i+1]);
+    }
+    printf("\n");
+}
+
 int main(int argc, char *argv[]){
-    intens_transform tr = TRANSF_LINEAR;
     initial_setup();
     parse_args(argc, argv);
     if(!G.fitsname) ERRX(_("No input filename given!"));
     if(!G.outfile)  ERRX(_("Point the name of output file!"));
+    intens_transform tr = TRANSF_LINEAR;
     if(G.transform) tr = gettransf(G.transform);
     if(tr == TRANSF_WRONG) ERRX(_("Wrong transform: %s"), G.transform);
     if(!file_absent(G.outfile) && !G.rewrite) ERRX(_("File %s exists"), G.outfile);
+    image_palette colormap = PALETTE_GRAY;
+    if(G.palette){ // convert normalized image due to choosen palette
+        colormap = palette_transform(G.palette);
+        if(colormap == PALETTE_WRONG) ERRX(_("Wrong colormap name"));
+    }
     DBG("Open file %s", G.fitsname);
     FITS *f = FITS_read(G.fitsname);
+    if(!f) ERRX(_("Failed to open"));
     DBG("HERE");
     green("got file %s, HDUs: %d, working HDU #%d\n", G.fitsname, f->NHDUs, G.nhdu);
     if(f->NHDUs < G.nhdu) ERRX(_("File %s consists %d HDUs!"), G.fitsname, f->NHDUs);
@@ -231,12 +249,9 @@ int main(int argc, char *argv[]){
     st = get_imgstat(dblimg, NULL);
 #endif
     DBG("After transformation: MIN=%g, MAX=%g, AVR=%g, STD=%g", st->min, st->max, st->mean, st->std);
-    image_palette colormap = PALETTE_GRAY;
-    if(G.palette){ // convert normalized image due to choosen palette
-        colormap = palette_transform(G.palette);
-        if(colormap == PALETTE_COUNT) ERRX(_("Wrong colormap name"));
-    }
-    //uint8_t *colored = conv2rgb(dblimg);
+    histogram *h = dbl2histogram(dblimg, G.nlvl);
+    print_histo(h);
+    histogram_free(&h);
     uint8_t *colored = convert2palette(dblimg, colormap);
     DBG("Save jpeg to %s", G.outfile);
     if(!write_jpeg(G.outfile, colored, G.text, img)) ERRX(_("Can't save modified file %s"), G.outfile);

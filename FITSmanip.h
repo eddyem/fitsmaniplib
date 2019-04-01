@@ -126,14 +126,19 @@ typedef enum{
     TRANSF_EXP,
     TRANSF_POW,
     TRANSF_SQR,
-    TRANSF_HISTEQ
+    TRANSF_HISTEQ,
+    TRANSF_COUNT // amount of transforms
 } intens_transform;
 
 // different color maps
 typedef enum{
-    PALETTE_GRAY = 0,
+    PALETTE_WRONG = 0,
+    PALETTE_GRAY,
     PALETTE_BR,
-    PALETTE_COUNT
+    PALETTE_HOT,
+    PALETTE_COLD,
+    PALETTE_JET,
+    PALETTE_COUNT // amount of palettes
 } image_palette;
 
 typedef union{
@@ -157,6 +162,13 @@ typedef struct{
     FITSHDU *HDUs;      // HDUs array itself
     FITSHDU *curHDU;    // pointer to current HDU
 } FITS;
+
+typedef struct{
+    size_t *data;       // histogram data
+    size_t size;        // amount of levels
+    size_t totpix;      // total amount of pixels
+    double *levels;     // levels (for histograms of double images) for each H value
+}histogram;
 
 /**************************************************************************************
  *                                 fitskeywords.c                                     *
@@ -222,6 +234,14 @@ void FITS_reporterr(int *errcode);
 void initomp();
 doubleimage *mktransform(doubleimage *im, imgstat *st, intens_transform transf);
 uint8_t *convert2palette(doubleimage *im, image_palette cmap);
+
+/**************************************************************************************
+ *                                   histogram.c                                      *
+ **************************************************************************************/
+void histogram_free(histogram **H);
+histogram *dbl2histogram(doubleimage *im, size_t nvalues);
+doubleimage *dbl_histcutoff(doubleimage *im, size_t nlevls, double fracbtm, double fractop);
+doubleimage *dbl_histeq(doubleimage *im, size_t nlevls);
 
 /*
 // pointer to image conversion function

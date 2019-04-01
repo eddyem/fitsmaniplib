@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-03-29 21:12+0300\n"
+"POT-Creation-Date: 2019-04-01 13:42+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,65 +17,99 @@ msgstr ""
 "Content-Type: text/plain; charset=koi8-r\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:119
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:96
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:427
+msgid "Data range is too small"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:103
+msgid "Given transform type not supported yet"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:267
+msgid "Given colormap doesn't support yet"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:117
 msgid "Can't read HDU"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:147
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:145
 msgid "Unknown HDU type"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:263
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:261
 #, c-format
 msgid "Can't get real path for %s, use cfitsio to rewrite"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:316
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:315
 #, c-format
 msgid "Found %d pixels with undefined value"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:357
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:366
 msgid "Undefined image type, cant convert to double"
 msgstr ""
 
 #. / "Не могу скопировать данные"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:83
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:81
 msgid "Can't copy data"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:132
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:130
 msgid "Can't get value & comment"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:361
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:359
 msgid "No keywords in given HDU"
 msgstr ""
 
 #. / "Не могу добавить запись в список"
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:377
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:375
 msgid "Can't add record to list"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:121
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:119
 msgid "strdup() failed!"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:142
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:140
 msgid "Can't read row number!"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:159
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:157
 #, c-format
 msgid "Can't read column %d!"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:450
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:448
 #, c-format
 msgid "Can't write table %s!"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:460
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:458
 #, c-format
 msgid "Can't write column %s!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:42
+msgid "Amount of histogram levels should be less than 65536!"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:86
+msgid "Bottom fraction should be in [0, 1)"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:90
+msgid "Top fraction should be in (0, 1]"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:104
+#, c-format
+msgid "No pixels leave to process, have: %zd, need: %zd"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:122
+msgid "Can't find bottom index"
 msgstr ""

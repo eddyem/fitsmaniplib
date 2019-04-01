@@ -1,11 +1,10 @@
 /*
- * fits.c - cfitsio routines
+ * This file is part of the FITSmaniplib project.
+ * Copyright 2019  Edward V. Emelianov <edward.emelianoff@gmail.com>, <eddy@sao.ru>.
  *
- * Copyright 2015 Edward V. Emelianov <eddy@sao.ru, edward.emelianoff@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
+ * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
@@ -14,10 +13,9 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 #include "FITSmanip.h"
 #include "local.h"
 
@@ -324,6 +322,11 @@ void dblima_free(doubleimage **im){
     FREE(*im);
 }
 
+static double ubyteconv(const void *data){return (double)*((const uint8_t*)data);}
+static double ushortconv(const void *data){return (double)*((const uint16_t*)data);}
+static double ulongconv(const void *data){return (double)*((const uint32_t*)data);}
+static double ulonglongconv(const void *data){return (double)*((const uint64_t*)data);}
+static double floatconv(const void *data){return (double)*((const float*)data);}
 /**
  * @brief image2double convert image values to double
  * @param img - input image
@@ -338,12 +341,7 @@ doubleimage *image2double(FITSimage *img){
     dblim->height = img->naxes[1];
     dblim->totpix = tot;
     DBG("image: %ldx%ld=%ld", dblim->width, dblim->height, tot);
-    double (*fconv)(uint8_t *x);
-    double ubyteconv(uint8_t *data){return (double)*data;}
-    double ushortconv(uint8_t *data){return (double)*((uint16_t*)data);}
-    double ulongconv(uint8_t *data){return (double)*((uint32_t*)data);}
-    double ulonglongconv(uint8_t *data){return (double)*((uint64_t*)data);}
-    double floatconv(uint8_t *data){return (double)*((float*)data);}
+    double (*fconv)(const void *x);
     switch(img->dtype){
         case TBYTE:
             fconv = ubyteconv;
