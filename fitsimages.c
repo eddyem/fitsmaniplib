@@ -317,7 +317,7 @@ FITSimage *image_read(FITS *fits){
     return img;
 }
 
-void dblima_free(doubleimage **im){
+void doubleimage_free(doubleimage **im){
     FREE((*im)->data);
     FREE(*im);
 }
@@ -433,4 +433,19 @@ doubleimage *normalize_dbl(doubleimage *im, imgstat *st){
         dimg[i] = (dimg[i] - st->min) / rng;
     }
     return im;
+}
+
+/**
+ * @brief new_doubleimage - create image of double numbers
+ * @param w - width
+ * @param h - height
+ * @return empty image
+ */
+doubleimage *doubleimage_new(size_t w, size_t h){
+    doubleimage *out = MALLOC(doubleimage, 1);
+    out->height = h;
+    out->width = w;
+    out->totpix = w*h;
+    out->data = MALLOC(double, out->totpix);
+    return out;
 }

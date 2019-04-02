@@ -35,6 +35,9 @@ typedef struct{
     int   nhdu;         // HDU number to read image from
     int   rewrite;      // rewrite output file
     int   nlvl;         // amount of histogram levels
+    int   histeq;       // histogram equalisation
+    double histcutlow;  // low limit of histogram cut-off
+    double histcuthigh; // top limit -//-
 } glob_pars;
 
 /*
@@ -52,15 +55,18 @@ static glob_pars G = {
 */
 static myoption cmdlnopts[] = {
 // common options
-    {"help",    NO_ARGS,    NULL,   'h',    arg_int,    APTR(&help),        _("show this help")},
+    {"help",    NO_ARGS,    NULL,   'h',    arg_none,   APTR(&help),        _("show this help")},
     {"inname",  NEED_ARG,   NULL,   'i',    arg_string, APTR(&G.fitsname),  _("name of input file")},
     {"outpname",NEED_ARG,   NULL,   'o',    arg_string, APTR(&G.outfile),   _("output file name (jpeg)")},
     {"textline",NEED_ARG,   NULL,   't',    arg_string, APTR(&G.text),      _("add text line to output image (at bottom)")},
-    {"palette", NEED_ARG,   NULL,   'p',    arg_string, APTR(&G.palette),   _("convert as given palette (linear, br, hot)")},
+    {"palette", NEED_ARG,   NULL,   'p',    arg_string, APTR(&G.palette),   _("convert as given palette (br, cold, gray, hot, jet)")},
     {"hdunumber",NEED_ARG,  NULL,   'n',    arg_int,    APTR(&G.nhdu),      _("open image from given HDU number")},
-    {"transform",NEED_ARG,  NULL,   'T',    arg_string, APTR(&G.transform), _("type of intensity transformation (log, sqr, exp, pow)")},
+    {"transform",NEED_ARG,  NULL,   'T',    arg_string, APTR(&G.transform), _("type of intensity transformation (exp, lin, log, pow, sqrt)")},
     {"rewrite", NO_ARGS,    NULL,   'r',    arg_none,   APTR(&G.rewrite),   _("rewrite output file")},
     {"histlvl", NEED_ARG,   NULL,   'l',    arg_int,    APTR(&G.nlvl),      _("amount of levels for histogram calculation")},
+    {"hcutlow", NEED_ARG,   NULL,   'L',    arg_double, APTR(&G.histcutlow),_("histogram cut-off low limit")},
+    {"hcuthigh",NEED_ARG,   NULL,   'H',    arg_double, APTR(&G.histcuthigh),_("histogram cut-off high limit")},
+    {"histeq",  NO_ARGS,    NULL,   'E',    arg_none,   APTR(&G.histeq),    _("histogram equalisation")},
     end_option
 };
 
@@ -159,9 +165,14 @@ static intens_transform gettransf(const char *transf){
         case 's':
             return TRANSF_SQR;
         break;
-        default:
-            return TRANSF_WRONG;
     }
+    fprintf(stderr, "Possible arguments of " COLOR_RED "\"Transformation\"" COLOR_OLD ":\n");
+    fprintf(stderr, "exp - exponential transform\n");
+    fprintf(stderr, "linear (default) - linear transform (do nothing)\n");
+    fprintf(stderr, "log - logariphmic transform\n");
+    fprintf(stderr, "pow - x^2\n");
+    fprintf(stderr, "sqrt - sqrt(x)\n");
+    return TRANSF_WRONG;
 }
 
 /**
@@ -184,17 +195,27 @@ static image_palette palette_transform(char *p){
         case 'G':
             return PALETTE_GRAY;
         break;
-        case 'h':
+        case 'h': // hot, help
         case 'H':
-            return PALETTE_HOT;
+            switch(p[1]){
+                case 'o':
+                case 'O':
+                    return PALETTE_HOT;
+                break;
+            }
         break;
         case 'j':
         case 'J':
             return PALETTE_JET;
         break;
-        default:
-            return PALETTE_WRONG;
     }
+    fprintf(stderr, "Possible arguments of " COLOR_RED "\"palette\"" COLOR_OLD ":\n");
+    fprintf(stderr, "br - blue->red->yellow->white\n");
+    fprintf(stderr, "cold - black->blue->cyan->white\n");
+    fprintf(stderr, "gray (default) - simple gray\n");
+    fprintf(stderr, "hot -  black->red->yellow->white\n");
+    fprintf(stderr, "jet - black->white->blue\n");
+    return PALETTE_WRONG;
 }
 
 void print_histo(histogram *H){
@@ -212,17 +233,19 @@ void print_histo(histogram *H){
 int main(int argc, char *argv[]){
     initial_setup();
     parse_args(argc, argv);
-    if(!G.fitsname) ERRX(_("No input filename given!"));
-    if(!G.outfile)  ERRX(_("Point the name of output file!"));
-    intens_transform tr = TRANSF_LINEAR;
-    if(G.transform) tr = gettransf(G.transform);
-    if(tr == TRANSF_WRONG) ERRX(_("Wrong transform: %s"), G.transform);
-    if(!file_absent(G.outfile) && !G.rewrite) ERRX(_("File %s exists"), G.outfile);
     image_palette colormap = PALETTE_GRAY;
     if(G.palette){ // convert normalized image due to choosen palette
         colormap = palette_transform(G.palette);
-        if(colormap == PALETTE_WRONG) ERRX(_("Wrong colormap name"));
+        if(colormap == PALETTE_WRONG) ERRX(_("Wrong colormap: %s"), G.palette);
     }
+    intens_transform tr = TRANSF_LINEAR;
+    if(G.transform){
+        tr = gettransf(G.transform);
+        if(tr == TRANSF_WRONG) ERRX(_("Wrong transform: %s"), G.transform);
+    }
+    if(!G.fitsname) ERRX(_("No input filename given!"));
+    if(!G.outfile)  ERRX(_("Point the name of output file!"));
+    if(!file_absent(G.outfile) && !G.rewrite) ERRX(_("File %s exists"), G.outfile);
     DBG("Open file %s", G.fitsname);
     FITS *f = FITS_read(G.fitsname);
     if(!f) ERRX(_("Failed to open"));
@@ -244,12 +267,25 @@ int main(int argc, char *argv[]){
     st = get_imgstat(dblimg, NULL);
 #endif
     DBG("NOW: MIN=%g, MAX=%g, AVR=%g, STD=%g", st->min, st->max, st->mean, st->std);
+    green("Histogram before transformations:\n");
+    histogram *h = dbl2histogram(dblimg, G.nlvl);
+    print_histo(h);
+    histogram_free(&h);
+    if(G.histeq){ // equalize histogram
+        if(!dbl_histeq(dblimg, G.nlvl))
+            ERRX(_("Can't do histogram equalization"));
+    }
+    if(G.histcutlow > DBL_EPSILON || G.histcuthigh > DBL_EPSILON){
+        if(!dbl_histcutoff(dblimg, G.nlvl, G.histcutlow, G.histcuthigh))
+            ERRX(_("Can't make histogram cut-off"));
+    }
     if(!mktransform(dblimg, st, tr)) ERRX(_("Can't do given transform"));
 #ifdef EBUG
     st = get_imgstat(dblimg, NULL);
 #endif
     DBG("After transformation: MIN=%g, MAX=%g, AVR=%g, STD=%g", st->min, st->max, st->mean, st->std);
-    histogram *h = dbl2histogram(dblimg, G.nlvl);
+    green("Histogram after transformations:\n");
+    h = dbl2histogram(dblimg, G.nlvl);
     print_histo(h);
     histogram_free(&h);
     uint8_t *colored = convert2palette(dblimg, colormap);

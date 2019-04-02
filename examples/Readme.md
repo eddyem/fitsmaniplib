@@ -10,15 +10,18 @@ Usage: gd [args]
 
         Where args are:
 
-  -T, --transform=arg   type of intensity transformation (log, sqr, exp, pow)
+  -E, --histeq          histogram equalisation
+  -H, --hcuthigh=arg    histogram cut-off high limit
+  -L, --hcutlow=arg     histogram cut-off low limit
+  -T, --transform=arg   type of intensity transformation (exp, lin, log, pow, sqrt)
   -h, --help            show this help
   -i, --inname=arg      name of input file
+  -l, --histlvl=arg     amount of levels for histogram calculation
   -n, --hdunumber=arg   open image from given HDU number
   -o, --outpname=arg    output file name (jpeg)
-  -p, --palette=arg     convert as given palette
+  -p, --palette=arg     convert as given palette (br, cold, gray, hot, jet)
   -r, --rewrite         rewrite output file
   -t, --textline=arg    add text line to output image (at bottom)
-
 
 ## imstat.c
 

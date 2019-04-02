@@ -74,7 +74,6 @@ double sqrtrans(double in){ // square root
 typedef double (*transfunct)(double in);
 static transfunct tfunctions[TRANSF_COUNT] = {
     [TRANSF_EXP] = exptrans,
-    [TRANSF_HISTEQ] = NULL, // another type of transform!
     [TRANSF_LOG] = logtrans,
     [TRANSF_LINEAR] = lintrans,
     [TRANSF_POW] = powtrans,
@@ -98,7 +97,6 @@ doubleimage *mktransform(doubleimage *im, imgstat *st, intens_transform transf){
     }
     double *dimg = im->data;
     if(transf == TRANSF_LINEAR) return im; // identity
-if(transf == TRANSF_HISTEQ) return NULL; // histogram equalization; TODO: add this option too!
     double (*transfn)(double in) = tfunctions[transf];
     if(!transfn) ERRX(_("Given transform type not supported yet"));
     size_t totpix = im->totpix;

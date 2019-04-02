@@ -7,7 +7,7 @@
 msgid   ""
 msgstr  "Project-Id-Version: PACKAGE VERSION\n"
         "Report-Msgid-Bugs-To: \n"
-        "POT-Creation-Date: 2019-04-01 11:58+0300\n"
+        "POT-Creation-Date: 2019-04-02 11:55+0300\n"
         "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
         "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
         "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -33,6 +33,10 @@ msgstr  "Не могу добавить запись в список"
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitskeywords.c:81
 msgid   "Can't copy data"
 msgstr  "Не могу скопировать данные"
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/median.c:486
+msgid   "Can't create output image"
+msgstr  "Не могу создать выходное изображение"
 
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:122
 msgid   "Can't find bottom index"
@@ -73,7 +77,7 @@ msgstr  "Не могу записать столбец %s!"
 msgid   "Can't write table %s!"
 msgstr  "Не могу записать таблицу %s!"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:96
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:95
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:427
 msgid   "Data range is too small"
 msgstr  "Диапазон данных слишком мал"
@@ -83,11 +87,11 @@ msgstr  "Диапазон данных слишком мал"
 msgid   "Found %d pixels with undefined value"
 msgstr  "Найдено %d пикселей с неопределенными значениями"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:267
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:265
 msgid   "Given colormap doesn't support yet"
 msgstr  "Данная палитра пока не поддерживается"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:103
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:101
 msgid   "Given transform type not supported yet"
 msgstr  "Данный тип преобразований пока не поддерживается"
 
@@ -111,6 +115,10 @@ msgstr  "Неопределенный тип файла, не могу преобразовать в double"
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsfiles.c:145
 msgid   "Unknown HDU type"
 msgstr  "Неизвестный тип HDU"
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/median.c:211
+msgid   "Wrong parameters"
+msgstr  "Неправильные параметры"
 
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitstables.c:119
 msgid   "strdup() failed!"

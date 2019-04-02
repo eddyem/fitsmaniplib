@@ -94,7 +94,7 @@ typedef struct{
   */
 typedef struct{
 	int naxis;			// amount of image dimensions
-	long *naxes;		// dimensions
+	long *naxes;		// dimensions (x, y, z, etc)
     long totpix;        // total pixels amount
 	int bitpix;			// original bitpix
     int dtype;          // type of stored data
@@ -126,7 +126,6 @@ typedef enum{
     TRANSF_EXP,
     TRANSF_POW,
     TRANSF_SQR,
-    TRANSF_HISTEQ,
     TRANSF_COUNT // amount of transforms
 } intens_transform;
 
@@ -209,7 +208,8 @@ void *image_data_malloc(long totpix, int pxbytes);
 FITSimage *image_new(int naxis, long *naxes, int bitpix);
 FITSimage *image_mksimilar(FITSimage *in);
 FITSimage *image_copy(FITSimage *in);
-void dblima_free(doubleimage **im);
+doubleimage *doubleimage_new(size_t w, size_t h);
+void doubleimage_free(doubleimage **im);
 doubleimage *image2double(FITSimage *img);
 imgstat *get_imgstat(const doubleimage *dimg, imgstat *est);
 doubleimage *normalize_dbl(doubleimage *dimg, imgstat *st);
@@ -243,54 +243,12 @@ histogram *dbl2histogram(doubleimage *im, size_t nvalues);
 doubleimage *dbl_histcutoff(doubleimage *im, size_t nlevls, double fracbtm, double fractop);
 doubleimage *dbl_histeq(doubleimage *im, size_t nlevls);
 
-/*
-// pointer to image conversion function
-typedef FITS* (*imfuncptr)(FITS *in, Filter *f, Itmarray *i);
-*/
-
-/*
-// FilterType (not only convolution!)
-typedef enum{
-    FILTER_NONE = 0     // simple start
-    ,MEDIAN             // median filter
-    ,ADPT_MEDIAN        // simple adaptive median
-    ,LAPGAUSS           // laplasian of gaussian
-    ,GAUSS              // gaussian
-    ,SOBELH             // Sobel horizontal
-    ,SOBELV             // -//- vertical
-    ,SIMPLEGRAD         // simple gradient (by Sobel)
-    ,PREWITTH           // Prewitt (horizontal) - simple derivative
-    ,PREWITTV           // -//- (vertical)
-    ,SCHARRH            // Scharr (modified Sobel)
-    ,SCHARRV
-    ,STEP               // "posterisation"
-} FType;
-
-typedef struct{
-    double *data;
-    size_t size;
-}Itmarray;
-*/
-
-/*
-typedef struct _Filter{
-    char *name;         // filter name
-    FType FilterType;   // filter type
-    int w;              // filter width
-    int h;              // height
-    double sx;          // x half-width
-    double sy;          // y half-width (sx, sy - for Gaussian-type filters)
-    FITS* (*imfunc)(FITS *in, struct _Filter *f, Itmarray *i);    // image function for given conversion type
-} Filter;
-
-// mathematical operations when there's no '-i' parameter (for >1 FITS-files)
-typedef enum{
-    MATH_NONE = 0
-    ,MATH_SUM           // make sum of all files
-    ,MATH_MEDIAN        // calculate median by all files
-    ,MATH_MEAN          // calculate mean for all files
-    ,MATH_DIFF          // difference of first and rest files
-} MathOper;
-*/
+/**************************************************************************************
+ *                                     median.c                                       *
+ **************************************************************************************/
+doubleimage *get_median(const doubleimage *img, size_t radius);
+//doubleimage *get_adaptive_median(const doubleimage *img, size_t radius);
+double quick_select(const double *idata, int n);
+double calc_median(const double *idata, int n);
 
 #endif // FITSMANIP_H__

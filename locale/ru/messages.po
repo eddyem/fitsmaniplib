@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-04-01 13:42+0300\n"
+"POT-Creation-Date: 2019-04-02 13:36+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,16 @@ msgstr ""
 "Content-Type: text/plain; charset=koi8-r\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:96
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:95
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/fitsimages.c:427
 msgid "Data range is too small"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:103
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:101
 msgid "Given transform type not supported yet"
 msgstr ""
 
-#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:267
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/FITSmanip.c:265
 msgid "Given colormap doesn't support yet"
 msgstr ""
 
@@ -112,4 +112,12 @@ msgstr ""
 
 #: /home/eddy/C-files/FITSmaniplib/sharedlib_template/histogram.c:122
 msgid "Can't find bottom index"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/median.c:211
+msgid "Wrong parameters"
+msgstr ""
+
+#: /home/eddy/C-files/FITSmaniplib/sharedlib_template/median.c:486
+msgid "Can't create output image"
 msgstr ""
